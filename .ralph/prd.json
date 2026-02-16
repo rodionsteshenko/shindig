@@ -299,9 +299,10 @@
         "Typecheck passes"
       ],
       "priority": 16,
-      "status": "incomplete",
+      "status": "in_progress",
       "notes": "Can be developed in parallel with other features",
-      "phase": 1
+      "phase": 1,
+      "startedAt": "2026-02-16T00:52:38.071422"
     },
     {
       "id": "US-017",
@@ -341,7 +342,7 @@
   ],
   "metadata": {
     "createdAt": "2026-02-15T23:11:14.373148",
-    "lastUpdatedAt": "2026-02-16T00:52:07.412242",
+    "lastUpdatedAt": "2026-02-16T00:52:38.071465",
     "totalStories": 18,
     "completedStories": 11,
     "currentIteration": 2
