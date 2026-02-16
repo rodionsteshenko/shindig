@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 
+type FeatureType = "feature" | "bug";
+
 interface FeatureFormProps {
   onSubmitted: () => void;
 }
 
 export default function FeatureForm({ onSubmitted }: FeatureFormProps) {
+  const [type, setType] = useState<FeatureType>("feature");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [authorName, setAuthorName] = useState("");
@@ -27,6 +30,7 @@ export default function FeatureForm({ onSubmitted }: FeatureFormProps) {
         title: title.trim(),
         description: description.trim() || null,
         author_name: authorName.trim() || "Anonymous",
+        type,
       }),
     });
 
@@ -38,21 +42,53 @@ export default function FeatureForm({ onSubmitted }: FeatureFormProps) {
       return;
     }
 
+    setType("feature");
     setTitle("");
     setDescription("");
     setAuthorName("");
     onSubmitted();
   }
 
+  const isFeature = type === "feature";
+
   return (
     <form onSubmit={handleSubmit} className="bg-white rounded-xl border p-4 space-y-3">
-      <h3 className="font-semibold text-gray-900">Suggest a Feature</h3>
+      <h3 className="font-semibold text-gray-900">
+        {isFeature ? "Suggest a Feature" : "Report a Bug"}
+      </h3>
+
+      {/* Type selector */}
+      <div className="flex gap-4">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="radio"
+            name="feature-type"
+            value="feature"
+            checked={type === "feature"}
+            onChange={() => setType("feature")}
+            className="w-4 h-4 text-shindig-600 focus:ring-shindig-500"
+          />
+          <span className="text-sm text-gray-700">Feature Request</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="radio"
+            name="feature-type"
+            value="bug"
+            checked={type === "bug"}
+            onChange={() => setType("bug")}
+            className="w-4 h-4 text-shindig-600 focus:ring-shindig-500"
+          />
+          <span className="text-sm text-gray-700">Bug Report</span>
+        </label>
+      </div>
+
       <div>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Feature title *"
+          placeholder={isFeature ? "Feature title *" : "Bug title *"}
           required
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-shindig-500 focus:border-transparent outline-none"
         />
@@ -61,7 +97,11 @@ export default function FeatureForm({ onSubmitted }: FeatureFormProps) {
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Describe the feature (optional)"
+          placeholder={
+            isFeature
+              ? "Describe the feature (optional)"
+              : "Describe the bug and steps to reproduce (optional)"
+          }
           rows={2}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-shindig-500 focus:border-transparent outline-none resize-y"
         />
