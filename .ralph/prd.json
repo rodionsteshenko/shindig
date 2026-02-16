@@ -264,9 +264,10 @@
         "Typecheck passes"
       ],
       "priority": 14,
-      "status": "incomplete",
+      "status": "in_progress",
       "notes": "Depends on US-001",
-      "phase": 1
+      "phase": 1,
+      "startedAt": "2026-02-16T00:45:57.742098"
     },
     {
       "id": "US-015",
@@ -339,7 +340,7 @@
   ],
   "metadata": {
     "createdAt": "2026-02-15T23:11:14.373148",
-    "lastUpdatedAt": "2026-02-16T00:45:16.028038",
+    "lastUpdatedAt": "2026-02-16T00:45:57.742147",
     "totalStories": 18,
     "completedStories": 10,
     "currentIteration": 2
