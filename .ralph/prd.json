@@ -191,10 +191,11 @@
         "Verify in browser: badges display correctly for features with ai_verdict set"
       ],
       "priority": 10,
-      "status": "in_progress",
+      "status": "complete",
       "notes": "UI enhancement only",
       "phase": 1,
-      "startedAt": "2026-02-16T00:28:09.761454"
+      "startedAt": "2026-02-16T00:28:09.761454",
+      "actualDuration": 427.8966431617737
     },
     {
       "id": "US-011",
@@ -336,9 +337,9 @@
   ],
   "metadata": {
     "createdAt": "2026-02-15T23:11:14.373148",
-    "lastUpdatedAt": "2026-02-16T00:28:09.761490",
+    "lastUpdatedAt": "2026-02-16T00:35:17.658108",
     "totalStories": 18,
-    "completedStories": 8,
+    "completedStories": 9,
     "currentIteration": 2
   },
   "phases": {
