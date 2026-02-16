@@ -15,6 +15,7 @@ export default function EventForm({ event }: EventFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [title, setTitle] = useState(event?.title ?? "");
   const [description, setDescription] = useState(event?.description ?? "");
@@ -168,6 +169,7 @@ export default function EventForm({ event }: EventFormProps) {
 
     setLoading(true);
     setError(null);
+    setFieldErrors({});
 
     const body = {
       title,
@@ -201,6 +203,9 @@ export default function EventForm({ event }: EventFormProps) {
 
     if (!res.ok) {
       setError(data.error ?? "Something went wrong");
+      if (data.errors && typeof data.errors === "object") {
+        setFieldErrors(data.errors);
+      }
       return;
     }
 
@@ -226,8 +231,13 @@ export default function EventForm({ event }: EventFormProps) {
           onChange={(e) => setTitle(e.target.value)}
           required
           placeholder="Summer BBQ, Birthday Party, Team Offsite..."
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-shindig-500 focus:border-transparent outline-none"
+          className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-shindig-500 focus:border-transparent outline-none ${
+            fieldErrors.title ? "border-red-500" : "border-gray-300"
+          }`}
         />
+        {fieldErrors.title && (
+          <p className="text-red-600 text-sm mt-1">{fieldErrors.title}</p>
+        )}
       </div>
 
       {/* Custom URL (only for new events) */}
@@ -291,8 +301,13 @@ export default function EventForm({ event }: EventFormProps) {
             value={startTime}
             onChange={(e) => setStartTime(e.target.value)}
             required
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-shindig-500 focus:border-transparent outline-none"
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-shindig-500 focus:border-transparent outline-none ${
+              fieldErrors.start_time ? "border-red-500" : "border-gray-300"
+            }`}
           />
+          {fieldErrors.start_time && (
+            <p className="text-red-600 text-sm mt-1">{fieldErrors.start_time}</p>
+          )}
         </div>
         <div>
           <label htmlFor="end_time" className="block text-sm font-medium text-gray-700 mb-1">
@@ -313,13 +328,18 @@ export default function EventForm({ event }: EventFormProps) {
         <label htmlFor="timezone" className="block text-sm font-medium text-gray-700 mb-1">
           Timezone
         </label>
-        <input
+        <select
           id="timezone"
-          type="text"
           value={timezone}
           onChange={(e) => setTimezone(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-shindig-500 focus:border-transparent outline-none"
-        />
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-shindig-500 focus:border-transparent outline-none bg-white"
+        >
+          {Intl.supportedValuesOf("timeZone").map((tz) => (
+            <option key={tz} value={tz}>
+              {tz.replace(/_/g, " ")}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Location */}
@@ -452,7 +472,16 @@ export default function EventForm({ event }: EventFormProps) {
       </div>
 
       {error && (
-        <p className="text-red-600 text-sm">{error}</p>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+          <p className="text-red-700 text-sm font-medium">{error}</p>
+          {Object.keys(fieldErrors).length > 0 && (
+            <ul className="text-red-600 text-sm mt-1 list-disc list-inside">
+              {Object.entries(fieldErrors).map(([field, message]) => (
+                <li key={field}>{message}</li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
 
       <button
