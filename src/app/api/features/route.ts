@@ -50,6 +50,7 @@ export async function POST(request: Request) {
         description: body.description?.trim() || null,
         author_name: body.author_name?.trim() || "Anonymous",
         author_email: body.author_email?.trim() || null,
+        type: body.type?.trim() || "feature",
       })
       .select()
       .single();
