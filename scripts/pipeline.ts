@@ -73,7 +73,7 @@ function ensurePrdMetadata() {
       dirty = true;
     }
     if (!prd.branchName) {
-      prd.branchName = "ralph/pipeline-feature";
+      prd.branchName = "main";
       dirty = true;
     }
     if (dirty) {
@@ -176,7 +176,7 @@ async function pipeline() {
   const prd = next.prd_json as Record<string, unknown>;
   const stories = (prd.userStories as unknown[]) ?? [];
   const now = new Date().toISOString();
-  prd.branchName = prd.branchName ?? `ralph/feature-${next.id.slice(0, 8)}`;
+  prd.branchName = "main";
   prd.phases = prd.phases ?? { "1": { name: "Phase 1", description: "" } };
   prd.metadata = {
     createdAt: now,
