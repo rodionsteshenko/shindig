@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { parseGuestCSV } from "@/lib/csvParser";
 
 interface GuestFormProps {
   eventId: string;
-  onGuestsAdded: () => void;
 }
 
-export default function GuestForm({ eventId, onGuestsAdded }: GuestFormProps) {
+export default function GuestForm({ eventId }: GuestFormProps) {
+  const router = useRouter();
   const [mode, setMode] = useState<"manual" | "csv">("manual");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -39,7 +40,7 @@ export default function GuestForm({ eventId, onGuestsAdded }: GuestFormProps) {
     setName("");
     setEmail("");
     setPhone("");
-    onGuestsAdded();
+    router.refresh();
   }
 
   async function handleCSVImport() {
@@ -67,7 +68,7 @@ export default function GuestForm({ eventId, onGuestsAdded }: GuestFormProps) {
     }
 
     setCsvText("");
-    onGuestsAdded();
+    router.refresh();
   }
 
   return (

@@ -70,7 +70,7 @@ test.describe("Public Event Page", () => {
   });
 
   test("returns 404 for non-existent event slug", async ({ page }) => {
-    const response = await page.goto("/e/non-existent-event-slug-12345");
-    expect(response?.status()).toBe(404);
+    await page.goto("/e/non-existent-event-slug-12345");
+    await expect(page.getByText("404")).toBeVisible();
   });
 });

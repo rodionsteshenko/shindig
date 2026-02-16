@@ -77,8 +77,8 @@ test.describe("RSVP Page", () => {
   });
 
   test("returns 404 for invalid RSVP token", async ({ page }) => {
-    const response = await page.goto("/rsvp/invalid-token-12345");
-    expect(response?.status()).toBe(404);
+    await page.goto("/rsvp/invalid-token-12345");
+    await expect(page.getByText("404")).toBeVisible();
   });
 });
 

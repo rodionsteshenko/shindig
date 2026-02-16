@@ -77,10 +77,7 @@ export default async function EventDashboardPage({ params }: Props) {
       {/* Add Guests */}
       <section className="mb-8">
         <h2 className="text-lg font-semibold mb-3">Add Guests</h2>
-        <GuestForm eventId={e.id} onGuestsAdded={() => {}} />
-        <p className="text-xs text-gray-400 mt-2">
-          Refresh the page to see newly added guests in the list below.
-        </p>
+        <GuestForm eventId={e.id} />
       </section>
 
       {/* Guest List */}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Header from "@/components/Header";
+import SuggestFeatureButton from "@/components/SuggestFeatureButton";
 
 export const metadata: Metadata = {
   title: "Shindig — Event Invites That Don't Suck",
@@ -21,6 +22,7 @@ export default function RootLayout({
       <body className="min-h-screen bg-gray-50 text-gray-900 antialiased">
         <Header />
         {children}
+        <SuggestFeatureButton />
       </body>
     </html>
   );
