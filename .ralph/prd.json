@@ -48,7 +48,7 @@
       "id": "US-003",
       "phase": 1,
       "title": "Include location in RSVP and guest-facing views",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 2,
       "description": "As a guest viewing my RSVP page, I want to see the event location so that I have all the details I need in one place.",
       "acceptanceCriteria": [
@@ -59,15 +59,17 @@
         "TypeScript typecheck passes with no errors (npm run build)",
         "E2E test in e2e/rsvp.spec.ts verifies location appears on the RSVP page for a seeded event with location data"
       ],
-      "startedAt": "2026-02-16T08:11:48.192645"
+      "startedAt": "2026-02-16T08:11:48.192645",
+      "actualDuration": 292.12684988975525,
+      "iterationNumber": 3
     }
   ],
   "metadata": {
     "createdAt": "2026-02-16T13:03:09.496Z",
-    "lastUpdatedAt": "2026-02-16T08:11:48.192668",
+    "lastUpdatedAt": "2026-02-16T08:16:40.319495",
     "totalStories": 3,
-    "completedStories": 2,
-    "currentIteration": 2
+    "completedStories": 3,
+    "currentIteration": 3
   },
   "phases": {
     "1": {
