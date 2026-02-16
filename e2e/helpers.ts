@@ -114,6 +114,42 @@ export async function seedGuest(eventId: string, overrides?: Record<string, unkn
 }
 
 /**
+ * Creates a test API key via the admin client.
+ * Returns both the raw key (for testing auth) and the database row.
+ */
+export async function seedApiKey(
+  userId: string,
+  overrides?: Record<string, unknown>
+): Promise<{ key: string; row: Record<string, unknown> }> {
+  const supabase = adminClient();
+
+  // Generate a test key
+  const randomPart = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const key = `shk_${randomPart.padEnd(48, "0").slice(0, 48)}`;
+  const prefix = key.substring(0, 4);
+
+  // Hash the key using Node.js crypto (since this runs in test environment)
+  const crypto = await import("crypto");
+  const hash = crypto.createHash("sha256").update(key).digest("hex");
+
+  const { data, error } = await supabase
+    .from("api_keys")
+    .insert({
+      user_id: userId,
+      name: "Test API Key",
+      key_hash: hash,
+      key_prefix: prefix,
+      scopes: ["events:read", "events:write", "guests:read", "guests:write"],
+      ...overrides,
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to seed API key: ${error.message}`);
+  return { key, row: data };
+}
+
+/**
  * Cleans up all test data. Call in afterAll/afterEach.
  */
 export async function cleanupTestData() {
@@ -129,4 +165,8 @@ export async function cleanupTestData() {
   }
   // Delete feature test data
   await supabase.from("feature_requests").delete().like("title", "E2E Test%");
+  // Delete test API keys
+  if (testUser) {
+    await supabase.from("api_keys").delete().eq("user_id", testUser.id);
+  }
 }

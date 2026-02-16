@@ -34,15 +34,6 @@ test.describe("Landing Page", () => {
     await expect(featureLink).toHaveAttribute("href", "/features");
   });
 
-  test("shows pricing section with 3 tiers", async ({ page }) => {
-    await page.goto("/");
-
-    await expect(page.getByText("Pricing")).toBeVisible();
-    await expect(page.getByText("Free", { exact: true })).toBeVisible();
-    await expect(page.getByText("Pro", { exact: true })).toBeVisible();
-    await expect(page.getByText("Event Pass", { exact: true })).toBeVisible();
-  });
-
   test("shows footer with suggest feature link", async ({ page }) => {
     await page.goto("/");
 

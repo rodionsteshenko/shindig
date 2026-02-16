@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { validateGuestsArrayInput, MAX_GUESTS_PER_EVENT } from "@/lib/validation";
+import { sanitizeError } from "@/lib/apiResponse";
 
 export async function GET(
   _request: Request,
@@ -25,17 +27,21 @@ export async function GET(
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
-  const { data: guests, error } = await supabase
-    .from("guests")
-    .select("*")
-    .eq("event_id", id)
-    .order("created_at", { ascending: true });
+  try {
+    const { data: guests, error } = await supabase
+      .from("guests")
+      .select("*")
+      .eq("event_id", id)
+      .order("created_at", { ascending: true });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error) {
+      return NextResponse.json({ error: sanitizeError(error) }, { status: 400 });
+    }
+
+    return NextResponse.json(guests);
+  } catch (err) {
+    return NextResponse.json({ error: sanitizeError(err) }, { status: 500 });
   }
-
-  return NextResponse.json(guests);
 }
 
 export async function POST(
@@ -63,6 +69,27 @@ export async function POST(
   }
 
   const body = await request.json();
+
+  // Validate guest input
+  const validation = validateGuestsArrayInput(body);
+  if (!validation.valid) {
+    return NextResponse.json({ error: "Validation failed", errors: validation.errors }, { status: 400 });
+  }
+
+  // Check guest count limit
+  const { count } = await supabase
+    .from("guests")
+    .select("*", { count: "exact", head: true })
+    .eq("event_id", id);
+
+  const newCount = (count ?? 0) + body.guests.length;
+  if (newCount > MAX_GUESTS_PER_EVENT) {
+    return NextResponse.json(
+      { error: `Cannot exceed ${MAX_GUESTS_PER_EVENT} guests per event (currently ${count})` },
+      { status: 400 }
+    );
+  }
+
   const guestsToInsert = body.guests.map((g: { name: string; email: string; phone?: string }) => ({
     event_id: id,
     name: g.name,
@@ -70,14 +97,18 @@ export async function POST(
     phone: g.phone || null,
   }));
 
-  const { data: guests, error } = await supabase
-    .from("guests")
-    .insert(guestsToInsert)
-    .select();
+  try {
+    const { data: guests, error } = await supabase
+      .from("guests")
+      .insert(guestsToInsert)
+      .select();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    if (error) {
+      return NextResponse.json({ error: sanitizeError(error) }, { status: 400 });
+    }
+
+    return NextResponse.json(guests, { status: 201 });
+  } catch (err) {
+    return NextResponse.json({ error: sanitizeError(err) }, { status: 500 });
   }
-
-  return NextResponse.json(guests, { status: 201 });
 }

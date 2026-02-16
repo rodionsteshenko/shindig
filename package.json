@@ -10,7 +10,8 @@
     "test": "npx playwright test",
     "test:ui": "npx playwright test --ui",
     "test:headed": "npx playwright test --headed",
-    "db:check": "npx tsx --env-file=.env.local scripts/apply-migration.ts"
+    "db:check": "npx tsx --env-file=.env.local scripts/apply-migration.ts",
+    "db:seed-demo": "npx tsx --env-file=.env.local scripts/seed-demo.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
@@ -27,6 +28,7 @@
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.0",
     "dotenv": "^17.3.1",
+    "pg": "^8.18.0",
     "postcss": "^8.4.0",
     "tailwindcss": "^3.4.0",
     "tsx": "^4.21.0",

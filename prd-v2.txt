@@ -1,0 +1,197 @@
+# Shindig v2.0 — Phases 4-6: REST API, Feature Judge, Ralph Integration
+
+## Context
+
+Shindig is a Next.js 15 (App Router) event management app with Supabase for database/auth, Tailwind CSS for styling, and Playwright for E2E testing. The codebase is in /Users/rodion/shindig.
+
+Key existing infrastructure (just implemented in Phases 1-3):
+- `src/lib/validation.ts` — input validators (validateEventInput, validateGuestInput, validateRSVPInput, validateFeatureInput, etc.)
+- `src/lib/rateLimit.ts` — in-memory rate limiters (publicEndpointLimiter, featureSubmitLimiter, voteLimiter, emailSendLimiter, rsvpLimiter)
+- `src/lib/apiResponse.ts` — envelope helpers (success, error, validationError, rateLimitError, paginatedSuccess, sanitizeError)
+- `src/lib/types.ts` — includes ApiKey interface, extended FeatureRequest with type/ai_verdict/ai_reason/severity/prd_json/implementation_status
+- Database migration `002_api_keys_and_features_v2.sql` adds api_keys table and extends feature_requests
+
+Existing routes use `NextResponse.json()` directly (not the envelope pattern). The new v1 API routes MUST use the envelope pattern from apiResponse.ts.
+
+## Tech Stack
+- Next.js 15 App Router, React 19, TypeScript strict mode
+- Tailwind CSS 3.4 (utility classes only)
+- Supabase (Postgres + Auth)
+- `@/` import alias maps to `src/`
+- E2E tests use Playwright in `e2e/` directory
+- Test helpers in `e2e/helpers.ts` (ensureTestUser, loginAsTestUser, seedEvent, seedGuest, cleanupTestData, adminClient)
+
+## Feature 1: API Key Authentication System
+
+### Story 1.1: API Key Generation and Verification Library
+Create `src/lib/apiKeyAuth.ts` with:
+- `generateApiKey()` — returns `{ key: "shk_..." (48 random chars), hash: string (SHA-256 of key), prefix: "shk_" + first 8 chars }`
+- `authenticateApiKey(request: Request)` — reads `Authorization: Bearer shk_...` header, hashes the key, looks it up in `api_keys` table via admin Supabase client, validates expiry, updates `last_used_at`, returns `{ user_id, scopes }` or null
+- `authenticateRequest(request: Request)` — tries API key auth first, then falls back to Supabase session auth. Returns `{ user_id: string, scopes: string[] | null, authMethod: "api_key" | "session" }` or null
+- `hasScope(scopes: string[] | null, scope: string)` — returns true if scopes is null (session auth has all access) or if the scope is in the array
+- Use crypto.subtle for SHA-256 hashing (works in Edge runtime)
+- Use `createAdminClient()` from `@/lib/supabase/admin` for database lookups
+
+### Story 1.2: API Key Management Routes
+Create `src/app/api/v1/api-keys/route.ts`:
+- POST: Create new API key (session auth only, NOT API key auth). Accepts `{ name, scopes?, expires_at? }`. Generates key, stores hash, returns the full key ONCE (never retrievable again). Use envelope pattern.
+- GET: List user's API keys (session or API key auth). Returns id, name, key_prefix, scopes, last_used_at, expires_at, created_at. Never returns key_hash. Use envelope pattern.
+
+Create `src/app/api/v1/api-keys/[id]/route.ts`:
+- DELETE: Revoke (delete) an API key. Session auth only. Verify ownership. Use envelope pattern.
+
+### Story 1.3: API Key Management UI
+Create `src/app/dashboard/api-keys/page.tsx`:
+- Protected page (redirect to /login if not authenticated)
+- Shows list of user's API keys (name, prefix, scopes, last used, expiry)
+- "Create API Key" form: name input, optional scope checkboxes, optional expiry date
+- On create, show the full key ONCE in a modal/alert with copy button, warn it won't be shown again
+- Revoke button per key with confirmation
+- Add link to this page from the dashboard header/nav
+
+## Feature 2: v1 REST API Endpoints
+
+All v1 routes use:
+- `authenticateRequest()` from apiKeyAuth.ts for auth
+- `hasScope()` for scope checking
+- Envelope pattern from apiResponse.ts
+- Input validation from validation.ts
+- Rate limiting from rateLimit.ts (publicEndpointLimiter for unauthenticated, other limiters as appropriate)
+- Pagination: `?page=1&per_page=20` query params, default per_page=20, max per_page=100
+
+### Story 2.1: Events v1 API
+Create `src/app/api/v1/events/route.ts`:
+- GET: List authenticated user's events (paginated). Scope: events:read
+- POST: Create event. Scope: events:write. Use validateEventInput.
+
+Create `src/app/api/v1/events/[id]/route.ts`:
+- GET: Single event by ID. Scope: events:read. Verify ownership.
+- PUT: Update event. Scope: events:write. Verify ownership. Use validateEventInput.
+- DELETE: Delete event. Scope: events:write. Verify ownership.
+
+Create `src/app/api/v1/events/public/[slug]/route.ts`:
+- GET: Public event by slug. No auth required. Rate limited with publicEndpointLimiter.
+
+### Story 2.2: Guests v1 API
+Create `src/app/api/v1/events/[id]/guests/route.ts`:
+- GET: List guests for event (paginated, filterable by rsvp_status). Scope: guests:read. Verify event ownership.
+- POST: Add guest(s). Scope: guests:write. Verify event ownership. Use validateGuestInput. Check MAX_GUESTS_PER_EVENT.
+
+Create `src/app/api/v1/events/[id]/guests/[guestId]/route.ts`:
+- GET: Single guest. Scope: guests:read. Verify event ownership.
+- PUT: Update guest. Scope: guests:write. Verify event ownership.
+- DELETE: Remove guest. Scope: guests:write. Verify event ownership.
+
+### Story 2.3: Invitations v1 API
+Create `src/app/api/v1/events/[id]/invite/route.ts`:
+- POST: Send invitations. Scope: events:write. Rate limited with emailSendLimiter. Body: `{ guest_ids?: string[] }`. Same logic as existing invite route but with envelope response.
+
+Create `src/app/api/v1/events/[id]/remind/route.ts`:
+- POST: Send reminders. Scope: events:write. Rate limited with emailSendLimiter. Same logic as existing remind route but with envelope response.
+
+### Story 2.4: Features v1 API
+Create `src/app/api/v1/features/route.ts`:
+- GET: List features (paginated, filterable by type and status). Scope: features:read. Public (no auth required but rate limited).
+- POST: Submit feature. No auth required. Rate limited with featureSubmitLimiter. Use validateFeatureInput. Accept `type` field (feature/bug).
+
+Create `src/app/api/v1/features/[id]/route.ts`:
+- GET: Single feature. Public. Rate limited.
+- PUT: Update feature status (owner override). Requires session auth (not API key). Only updates status field.
+
+## Feature 3: Feature Board Enhancements
+
+### Story 3.1: Update Feature Submission
+Modify `src/app/api/features/route.ts` POST handler to also accept and store the `type` field (feature/bug), defaulting to 'feature'.
+
+### Story 3.2: Update Feature Form UI
+Modify `src/components/FeatureForm.tsx`:
+- Add a type selector (radio or tabs): "Feature Request" / "Bug Report"
+- Pass the `type` field in the POST body
+- Adjust placeholder text based on selection
+
+### Story 3.3: Update Feature Card UI
+Modify `src/components/FeatureCard.tsx`:
+- Show type indicator (feature icon vs bug icon)
+- Show AI verdict badge if present (Approved in green, Rejected in red, Needs Clarification in yellow)
+- Show AI reason text if present
+- Show severity badge for bugs (critical=red, high=orange, medium=yellow, low=gray)
+
+### Story 3.4: Update Feature Board Page with Filters
+Modify `src/app/features/page.tsx`:
+- Add filter tabs: All / Features / Bugs / Approved / Needs Review
+- Filter the displayed features based on active tab
+- "Needs Review" shows features where status is 'open' (not yet judged)
+
+## Feature 4: Feature Judge Script
+
+### Story 4.1: Judge Script
+Create `scripts/judge-features.ts`:
+- Uses `createClient` from `@supabase/supabase-js` with env vars (same pattern as scripts/seed-demo.ts)
+- Queries for features with `status = 'open'` (unreviewed)
+- If none found, log "No pending features" and exit
+- Formats a prompt with all pending features
+- Invokes `claude --print --dangerously-skip-permissions -p "..."` using child_process.execSync
+- The prompt asks Claude to evaluate each feature and return JSON array of verdicts
+- Parses the JSON response and updates each feature in the database with: ai_verdict, ai_reason, severity (for bugs), new status
+- Add `"judge": "npx tsx --env-file=.env.local scripts/judge-features.ts"` to package.json
+
+### Story 4.2: PRD Generator Script
+Create `scripts/generate-prd.ts`:
+- Queries for features with `status = 'approved'` and `implementation_status = 'none'`
+- Invokes Claude to generate structured PRD JSON from feature details
+- Stores `prd_json` in the feature row and sets `implementation_status = 'queued'`
+- Add `"generate-prd": "npx tsx --env-file=.env.local scripts/generate-prd.ts"` to package.json
+
+## Feature 5: Queue Endpoints for Ralph Integration
+
+### Story 5.1: Queue Management Routes
+Create `src/app/api/v1/features/queue/route.ts`:
+- GET: List queued features ordered by vote_count desc (implementation_status = 'queued'). Scope: features:read.
+
+Create `src/app/api/v1/features/[id]/queue/route.ts`:
+- POST: Queue a feature for implementation. Requires session auth. Sets implementation_status to 'queued'. If prd_json is not set, returns error saying PRD must be generated first.
+
+Create `src/app/api/v1/features/[id]/implementation/route.ts`:
+- PUT: Update implementation status. Body: `{ status: "in_progress" | "completed" | "failed" }`. Scope: features:read (Ralph uses API key).
+
+### Story 5.2: Ralph Trigger Script
+Create `scripts/trigger-ralph.ts`:
+- Fetches next queued feature from API (direct Supabase query)
+- Marks it as `in_progress`
+- Outputs Ralph-compatible PRD JSON to stdout
+- Add `"trigger-ralph": "npx tsx --env-file=.env.local scripts/trigger-ralph.ts"` to package.json
+
+## Feature 6: E2E Tests
+
+### Story 6.1: Security Tests
+Create `e2e/security.spec.ts`:
+- Test that submitting a feature with empty title returns 400
+- Test that submitting a feature with title > 200 chars returns 400
+- Test that RSVP with invalid status returns 400
+
+### Story 6.2: v1 API Tests
+Create `e2e/api-v1.spec.ts`:
+- Test v1 events endpoints (list, create, get, update, delete) with session auth
+- Test v1 public event endpoint
+- Test v1 guests endpoints
+- Test v1 features endpoints
+- Test API key creation and authentication
+- Test scope enforcement
+
+### Story 6.3: Feature Board Tests
+Create `e2e/features-v2.spec.ts`:
+- Test feature submission with type selector (feature vs bug)
+- Test filter tabs work
+- Test AI verdict badge display (seed a feature with ai_verdict set)
+
+## IMPORTANT Implementation Notes
+
+1. All new files should use TypeScript strict mode
+2. Use `@/` import alias (maps to `src/`)
+3. API envelope pattern: `{ data, error, meta }` for all v1 routes
+4. Never expose key_hash or full API key after creation
+5. Rate limiting is skipped in test environment (NODE_ENV=test)
+6. Use Tailwind CSS utility classes only, follow existing styling patterns
+7. Follow existing file naming conventions (PascalCase for components, camelCase for libs)
+8. The existing routes (non-v1) keep their current response format — only add validation/rate limiting
+9. Read existing files for patterns before creating new ones

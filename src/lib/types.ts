@@ -48,7 +48,13 @@ export interface FeatureRequest {
   description: string | null;
   author_name: string;
   author_email: string | null;
-  status: "open" | "planned" | "in_progress" | "done";
+  type: "feature" | "bug";
+  status: "open" | "approved" | "rejected" | "needs_clarification" | "planned" | "in_progress" | "done";
+  ai_verdict: "approved" | "rejected" | "needs_clarification" | null;
+  ai_reason: string | null;
+  severity: "critical" | "high" | "medium" | "low" | null;
+  prd_json: Record<string, unknown> | null;
+  implementation_status: "none" | "queued" | "in_progress" | "completed" | "failed";
   vote_count: number;
   created_at: string;
 }
@@ -57,5 +63,17 @@ export interface FeatureVote {
   id: string;
   feature_id: string;
   voter_identifier: string;
+  created_at: string;
+}
+
+export interface ApiKey {
+  id: string;
+  user_id: string;
+  name: string;
+  key_hash: string;
+  key_prefix: string;
+  scopes: string[];
+  last_used_at: string | null;
+  expires_at: string | null;
   created_at: string;
 }

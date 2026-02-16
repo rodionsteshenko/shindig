@@ -78,65 +78,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Pricing */}
-      <div className="max-w-4xl mx-auto py-20 px-4">
-        <h2 className="text-3xl font-bold text-center mb-12">Pricing</h2>
-        <div className="grid md:grid-cols-3 gap-8">
-          <div className="border rounded-2xl p-8 text-center">
-            <h3 className="text-xl font-semibold mb-2">Free</h3>
-            <p className="text-4xl font-bold mb-4">$0</p>
-            <ul className="text-gray-600 space-y-2 mb-8">
-              <li>3 events / month</li>
-              <li>30 guests / event</li>
-              <li>Email invitations</li>
-              <li>RSVP tracking</li>
-            </ul>
-            <Link
-              href="/create"
-              className="block border-2 border-shindig-600 text-shindig-600 px-6 py-2 rounded-full font-semibold hover:bg-shindig-50 transition-colors"
-            >
-              Get Started
-            </Link>
-          </div>
-          <div className="border-2 border-shindig-600 rounded-2xl p-8 text-center relative">
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-shindig-600 text-white px-4 py-1 rounded-full text-sm font-semibold">
-              Popular
-            </div>
-            <h3 className="text-xl font-semibold mb-2">Pro</h3>
-            <p className="text-4xl font-bold mb-4">$5<span className="text-lg text-gray-500">/mo</span></p>
-            <ul className="text-gray-600 space-y-2 mb-8">
-              <li>Unlimited events</li>
-              <li>200 guests / event</li>
-              <li>SMS invitations & reminders</li>
-              <li>Custom branding</li>
-              <li>No &quot;Powered by&quot; footer</li>
-            </ul>
-            <Link
-              href="/create"
-              className="block bg-shindig-600 text-white px-6 py-2 rounded-full font-semibold hover:bg-shindig-700 transition-colors"
-            >
-              Start Free Trial
-            </Link>
-          </div>
-          <div className="border rounded-2xl p-8 text-center">
-            <h3 className="text-xl font-semibold mb-2">Event Pass</h3>
-            <p className="text-4xl font-bold mb-4">$2<span className="text-lg text-gray-500"> once</span></p>
-            <ul className="text-gray-600 space-y-2 mb-8">
-              <li>One premium event</li>
-              <li>200 guests</li>
-              <li>SMS + email</li>
-              <li>Perfect for one-off parties</li>
-            </ul>
-            <Link
-              href="/create"
-              className="block border-2 border-shindig-600 text-shindig-600 px-6 py-2 rounded-full font-semibold hover:bg-shindig-50 transition-colors"
-            >
-              Buy a Pass
-            </Link>
-          </div>
-        </div>
-      </div>
-
       {/* Footer */}
       <footer className="w-full border-t py-8 text-center text-gray-500 text-sm">
         <p>Shindig — Built with 🤖 and ❤️ — <Link href="/features" className="text-shindig-600 hover:underline">Suggest a feature</Link></p>

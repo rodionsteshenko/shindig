@@ -26,6 +26,12 @@ export default async function Header() {
                 Dashboard
               </Link>
               <Link
+                href="/dashboard/api-keys"
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                API Keys
+              </Link>
+              <Link
                 href="/create"
                 className="bg-shindig-600 text-white px-4 py-1.5 rounded-full text-sm font-semibold hover:bg-shindig-700 transition-colors"
               >

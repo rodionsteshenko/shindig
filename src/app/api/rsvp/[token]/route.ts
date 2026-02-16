@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { validateRSVPInput } from "@/lib/validation";
+import { rsvpLimiter } from "@/lib/rateLimit";
+import { sanitizeError } from "@/lib/apiResponse";
 
 export async function GET(
   _request: Request,
@@ -26,25 +29,46 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
-  const supabase = createAdminClient();
-  const body = await request.json();
 
-  const { data, error } = await supabase
-    .from("guests")
-    .update({
-      rsvp_status: body.rsvp_status,
-      plus_one_count: body.plus_one_count ?? 0,
-      dietary: body.dietary || null,
-      message: body.message || null,
-      responded_at: new Date().toISOString(),
-    })
-    .eq("rsvp_token", token)
-    .select()
-    .single();
-
-  if (error || !data) {
-    return NextResponse.json({ error: "Failed to update RSVP" }, { status: 400 });
+  // Rate limit
+  const limit = rsvpLimiter(request);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfter) } }
+    );
   }
 
-  return NextResponse.json(data);
+  const body = await request.json();
+
+  // Validate input
+  const validation = validateRSVPInput(body);
+  if (!validation.valid) {
+    return NextResponse.json({ error: "Validation failed", errors: validation.errors }, { status: 400 });
+  }
+
+  const supabase = createAdminClient();
+
+  try {
+    const { data, error } = await supabase
+      .from("guests")
+      .update({
+        rsvp_status: body.rsvp_status,
+        plus_one_count: body.plus_one_count ?? 0,
+        dietary: body.dietary || null,
+        message: body.message || null,
+        responded_at: new Date().toISOString(),
+      })
+      .eq("rsvp_token", token)
+      .select()
+      .single();
+
+    if (error || !data) {
+      return NextResponse.json({ error: "Failed to update RSVP" }, { status: 400 });
+    }
+
+    return NextResponse.json(data);
+  } catch (err) {
+    return NextResponse.json({ error: sanitizeError(err) }, { status: 500 });
+  }
 }

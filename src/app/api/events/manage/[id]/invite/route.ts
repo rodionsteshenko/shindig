@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getResendClient } from "@/lib/resend";
 import { invitationEmail } from "@/lib/emailTemplates";
 import { formatDate, formatTime } from "@/lib/utils";
+import { emailSendLimiter } from "@/lib/rateLimit";
+import { sanitizeError } from "@/lib/apiResponse";
 import type { Event, Guest } from "@/lib/types";
 
 export async function POST(
@@ -10,6 +12,16 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+
+  // Rate limit
+  const limit = emailSendLimiter(request);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfter) } }
+    );
+  }
+
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -85,7 +97,8 @@ export async function POST(
         .eq("id", guest.id);
 
       sent++;
-    } catch {
+    } catch (err) {
+      console.error(`Failed to send to ${guest.email}:`, sanitizeError(err));
       failed++;
     }
   }
