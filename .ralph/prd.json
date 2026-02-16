@@ -1,367 +1,73 @@
 {
   "project": "Shindig",
-  "branchName": "ralph/v2-api-keys-features-ralph",
-  "description": "REST API v1 with API key authentication, enhanced feature board with AI verdict display and type filters, and Ralph integration for automated feature implementation",
+  "description": "Add location support to events: an address field and optional Google Maps link so guests can easily find the venue.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "API Key Generation and Verification Library",
-      "description": "As a developer, I want an API key authentication library so that external tools can authenticate with the Shindig API using bearer tokens",
-      "acceptanceCriteria": [
-        "Create src/lib/apiKeyAuth.ts with generateApiKey() that returns { key: 'sk_live_...' (48 random chars), hash: string (SHA-256), prefix: first 8 chars }",
-        "Implement authenticateApiKey(request) that reads Authorization: Bearer header, hashes key, looks up in api_keys table, validates expiry, updates last_used_at, returns { user_id, scopes } or null",
-        "Implement authenticateRequest(request) that tries API key auth first, falls back to Supabase session auth, returns { user_id, scopes, authMethod } or null",
-        "Implement hasScope(scopes, scope) that returns true if scopes is null (session auth) or scope is in array",
-        "Use crypto.subtle for SHA-256 hashing (Edge runtime compatible)",
-        "Use createAdminClient from @/lib/supabase/admin for database lookups",
-        "Typecheck passes"
-      ],
-      "priority": 1,
-      "status": "complete",
-      "notes": "Foundation for all v1 API authentication",
       "phase": 1,
-      "startedAt": "2026-02-15T23:15:34.242567",
-      "actualDuration": 356.4388988018036,
-      "iterationNumber": 1
+      "title": "Add location fields to event creation form",
+      "status": "incomplete",
+      "priority": 1,
+      "description": "As an event host, I want to enter a venue address and optional Google Maps link when creating an event so that my guests know where to go.",
+      "acceptanceCriteria": [
+        "The event creation form at src/app/create/ includes a 'Location / Address' text input field",
+        "The form includes an optional 'Google Maps Link' URL input field below the address",
+        "Both fields are optional \u2014 events can still be created without a location",
+        "The Google Maps link field validates that the URL starts with https:// when provided",
+        "Submitting the form persists location and maps_link to the events table in Supabase",
+        "The events table has 'location' (text, nullable) and 'maps_link' (text, nullable) columns",
+        "TypeScript typecheck passes with no errors (npm run build)",
+        "E2E test in e2e/event-creation.spec.ts verifies the location and maps link fields render and submit correctly"
+      ]
     },
     {
       "id": "US-002",
-      "title": "API Key Management Routes",
-      "description": "As an authenticated user, I want API endpoints to create, list, and revoke API keys so that I can manage programmatic access to my account",
-      "acceptanceCriteria": [
-        "Create src/app/api/v1/api-keys/route.ts with POST handler (session auth only) that accepts { name, scopes?, expires_at? }, generates key, stores hash, returns full key ONCE",
-        "POST uses envelope pattern from apiResponse.ts",
-        "Create GET handler (session or API key auth) that returns list of user's keys with id, name, key_prefix, scopes, last_used_at, expires_at, created_at (never key_hash)",
-        "Create src/app/api/v1/api-keys/[id]/route.ts with DELETE handler (session auth only) that verifies ownership and deletes key",
-        "DELETE uses envelope pattern from apiResponse.ts",
-        "Typecheck passes"
-      ],
-      "priority": 2,
-      "status": "complete",
-      "notes": "Depends on US-001",
       "phase": 1,
-      "startedAt": "2026-02-15T23:21:50.592857",
-      "actualDuration": 429.0332942008972,
-      "iterationNumber": 2
+      "title": "Display location on public event page",
+      "status": "in_progress",
+      "priority": 1,
+      "description": "As an event guest, I want to see the event's address and a clickable Google Maps link on the public event page so that I can easily navigate to the venue.",
+      "acceptanceCriteria": [
+        "The public event page at src/app/e/[slug]/ displays the location address when present",
+        "When a maps_link is provided, the address is wrapped in a clickable link that opens Google Maps in a new tab (target='_blank', rel='noopener noreferrer')",
+        "When no maps_link is provided but location is set, the address text is displayed with an auto-generated Google Maps search link (https://www.google.com/maps/search/?api=1&query=<encoded address>)",
+        "When no location is set, the location section is not rendered at all",
+        "A map pin icon (from an inline SVG or existing icon set) is shown next to the address",
+        "The location display is mobile-responsive following the existing Tailwind mobile-first pattern",
+        "TypeScript typecheck passes with no errors (npm run build)",
+        "E2E test in e2e/public-event.spec.ts verifies location and maps link render correctly for seeded events"
+      ],
+      "startedAt": "2026-02-16T08:03:38.500915"
     },
     {
       "id": "US-003",
-      "title": "API Key Management UI",
-      "description": "As an authenticated user, I want a dashboard page to manage my API keys so that I can create and revoke keys through the web interface",
-      "acceptanceCriteria": [
-        "Create src/app/dashboard/api-keys/page.tsx as protected page (redirect to /login if not authenticated)",
-        "Display list of user's API keys showing name, prefix, scopes, last used, expiry",
-        "Include 'Create API Key' form with name input, optional scope checkboxes, optional expiry date picker",
-        "On create, show full key ONCE in modal with copy button and warning it won't be shown again",
-        "Include revoke button per key with confirmation dialog",
-        "Add link to this page from dashboard header/nav",
-        "Follow existing Tailwind styling patterns from other dashboard pages",
-        "Typecheck passes",
-        "Verify in browser: can create key, see it in list, copy full key, revoke key"
-      ],
-      "priority": 3,
-      "status": "skipped",
-      "notes": "Depends on US-002",
       "phase": 1,
-      "startedAt": "2026-02-15T23:29:27.265840",
-      "skippedAt": "2026-02-15T23:46:39.536470"
-    },
-    {
-      "id": "US-004",
-      "title": "Events v1 API Endpoints",
-      "description": "As an API consumer, I want RESTful event endpoints so that I can programmatically manage events",
+      "title": "Include location in RSVP and guest-facing views",
+      "status": "incomplete",
+      "priority": 2,
+      "description": "As a guest viewing my RSVP page, I want to see the event location so that I have all the details I need in one place.",
       "acceptanceCriteria": [
-        "Create src/app/api/v1/events/route.ts with GET (list user's events, paginated, scope: events:read) and POST (create event, scope: events:write, use validateEventInput)",
-        "Create src/app/api/v1/events/[id]/route.ts with GET (single event, scope: events:read, verify ownership), PUT (update, scope: events:write, verify ownership), DELETE (scope: events:write, verify ownership)",
-        "Create src/app/api/v1/events/public/[slug]/route.ts with GET (no auth required, rate limited with publicEndpointLimiter)",
-        "All routes use authenticateRequest() and hasScope() from apiKeyAuth.ts",
-        "All routes use envelope pattern from apiResponse.ts",
-        "Pagination uses ?page=1&per_page=20 query params, default 20, max 100",
-        "Typecheck passes"
-      ],
-      "priority": 4,
-      "status": "complete",
-      "notes": "Depends on US-001",
-      "phase": 1,
-      "startedAt": "2026-02-15T23:48:00.677763",
-      "actualDuration": 292.5419728755951
-    },
-    {
-      "id": "US-005",
-      "title": "Guests v1 API Endpoints",
-      "description": "As an API consumer, I want RESTful guest management endpoints so that I can programmatically manage event guests",
-      "acceptanceCriteria": [
-        "Create src/app/api/v1/events/[id]/guests/route.ts with GET (list guests, paginated, filterable by rsvp_status, scope: guests:read, verify event ownership)",
-        "Include POST handler (add guests, scope: guests:write, verify ownership, use validateGuestInput, check MAX_GUESTS_PER_EVENT)",
-        "Create src/app/api/v1/events/[id]/guests/[guestId]/route.ts with GET (single guest, scope: guests:read, verify ownership), PUT (update, scope: guests:write), DELETE (remove, scope: guests:write)",
-        "All routes use authenticateRequest() and hasScope() from apiKeyAuth.ts",
-        "All routes use envelope pattern from apiResponse.ts",
-        "Typecheck passes"
-      ],
-      "priority": 5,
-      "status": "complete",
-      "notes": "Depends on US-001",
-      "phase": 1,
-      "startedAt": "2026-02-15T23:53:34.785773",
-      "actualDuration": 321.84760904312134
-    },
-    {
-      "id": "US-006",
-      "title": "Invitations v1 API Endpoints",
-      "description": "As an API consumer, I want invitation endpoints so that I can programmatically send invitations and reminders",
-      "acceptanceCriteria": [
-        "Create src/app/api/v1/events/[id]/invite/route.ts with POST handler (scope: events:write, rate limited with emailSendLimiter)",
-        "Accept body { guest_ids?: string[] } and send invitations (same logic as existing invite route)",
-        "Create src/app/api/v1/events/[id]/remind/route.ts with POST handler (scope: events:write, rate limited with emailSendLimiter)",
-        "Same reminder logic as existing remind route",
-        "Both routes use authenticateRequest(), hasScope(), and envelope pattern",
-        "Typecheck passes"
-      ],
-      "priority": 6,
-      "status": "complete",
-      "notes": "Depends on US-001",
-      "phase": 1,
-      "startedAt": "2026-02-15T23:59:38.142692",
-      "actualDuration": 279.3402280807495
-    },
-    {
-      "id": "US-007",
-      "title": "Features v1 API Endpoints",
-      "description": "As an API consumer, I want feature request endpoints so that I can programmatically manage feature submissions",
-      "acceptanceCriteria": [
-        "Create src/app/api/v1/features/route.ts with GET (list features, paginated, filterable by type and status, public but rate limited)",
-        "Include POST handler (submit feature, no auth required, rate limited with featureSubmitLimiter, use validateFeatureInput, accept type field)",
-        "Create src/app/api/v1/features/[id]/route.ts with GET (single feature, public, rate limited)",
-        "Include PUT handler (update feature status, session auth only, only updates status field)",
-        "All routes use envelope pattern from apiResponse.ts",
-        "Typecheck passes"
-      ],
-      "priority": 7,
-      "status": "complete",
-      "notes": "Depends on US-001",
-      "phase": 1,
-      "startedAt": "2026-02-16T00:07:26.904981",
-      "actualDuration": 696.0488650798798
-    },
-    {
-      "id": "US-008",
-      "title": "Update Feature Submission to Include Type",
-      "description": "As a user submitting a feature, I want to specify if it's a feature request or bug report so that the team can triage appropriately",
-      "acceptanceCriteria": [
-        "Modify src/app/api/features/route.ts POST handler to also accept and store the 'type' field (feature/bug), defaulting to 'feature'",
-        "Typecheck passes"
-      ],
-      "priority": 8,
-      "status": "complete",
-      "notes": "Small change to existing route",
-      "phase": 1,
-      "startedAt": "2026-02-16T00:04:48.292585",
-      "actualDuration": 57.834779262542725
-    },
-    {
-      "id": "US-009",
-      "title": "Update Feature Form UI with Type Selector",
-      "description": "As a user submitting a feature, I want to select whether I'm submitting a feature request or bug report so that I can categorize my submission",
-      "acceptanceCriteria": [
-        "Modify src/components/FeatureForm.tsx to add type selector (radio buttons or tabs): 'Feature Request' / 'Bug Report'",
-        "Pass the type field in the POST body",
-        "Adjust placeholder text based on selection (e.g., 'Describe the feature...' vs 'Describe the bug...')",
-        "Follow existing Tailwind styling patterns",
-        "Typecheck passes",
-        "Verify in browser: can toggle between feature/bug, form submits with correct type"
-      ],
-      "priority": 9,
-      "status": "complete",
-      "notes": "Depends on US-008",
-      "phase": 1,
-      "startedAt": "2026-02-16T00:19:30.458095",
-      "actualDuration": 487.0470597743988
-    },
-    {
-      "id": "US-010",
-      "title": "Update Feature Card UI with AI Verdict and Type",
-      "description": "As a user viewing the feature board, I want to see the type and AI verdict for each feature so that I understand the status",
-      "acceptanceCriteria": [
-        "Modify src/components/FeatureCard.tsx to show type indicator (feature icon vs bug icon)",
-        "Show AI verdict badge if present (Approved=green, Rejected=red, Needs Clarification=yellow)",
-        "Show AI reason text if ai_reason is present",
-        "Show severity badge for bugs (critical=red, high=orange, medium=yellow, low=gray)",
-        "Follow existing Tailwind styling patterns",
-        "Typecheck passes",
-        "Verify in browser: badges display correctly for features with ai_verdict set"
-      ],
-      "priority": 10,
-      "status": "complete",
-      "notes": "UI enhancement only",
-      "phase": 1,
-      "startedAt": "2026-02-16T00:28:09.761454",
-      "actualDuration": 427.8966431617737
-    },
-    {
-      "id": "US-011",
-      "title": "Update Feature Board Page with Filter Tabs",
-      "description": "As a user viewing the feature board, I want filter tabs so that I can filter by type and review status",
-      "acceptanceCriteria": [
-        "Modify src/app/features/page.tsx to add filter tabs: All / Features / Bugs / Approved / Needs Review",
-        "Filter displayed features based on active tab",
-        "'Needs Review' shows features where status is 'open' (not yet judged)",
-        "Follow existing Tailwind styling patterns",
-        "Typecheck passes",
-        "Verify in browser: clicking tabs filters the displayed features"
-      ],
-      "priority": 11,
-      "status": "complete",
-      "notes": "Depends on US-010",
-      "phase": 1,
-      "startedAt": "2026-02-16T00:35:41.758345",
-      "actualDuration": 574.2696840763092
-    },
-    {
-      "id": "US-012",
-      "title": "Feature Judge Script",
-      "description": "As a product owner, I want a script that uses Claude to evaluate pending features so that I can automate initial triage",
-      "acceptanceCriteria": [
-        "Create scripts/judge-features.ts using createClient from @supabase/supabase-js with env vars",
-        "Query for features with status='open' (unreviewed)",
-        "If none found, log 'No pending features' and exit",
-        "Format prompt with all pending features and invoke 'claude --print --dangerously-skip-permissions -p \"...\"' via child_process.execSync",
-        "Prompt asks Claude to evaluate each feature and return JSON array of verdicts",
-        "Parse JSON response and update each feature with: ai_verdict, ai_reason, severity (for bugs), new status",
-        "Add 'judge': 'npx tsx --env-file=.env.local scripts/judge-features.ts' to package.json",
-        "Typecheck passes"
-      ],
-      "priority": 12,
-      "status": "complete",
-      "notes": "Standalone script, can be developed in parallel",
-      "phase": 1,
-      "startedAt": "2026-02-16T01:18:13.865254",
-      "actualDuration": 155.36072182655334
-    },
-    {
-      "id": "US-013",
-      "title": "PRD Generator Script",
-      "description": "As a product owner, I want a script that generates PRD JSON for approved features so that Ralph can implement them",
-      "acceptanceCriteria": [
-        "Create scripts/generate-prd.ts using createClient from @supabase/supabase-js with env vars",
-        "Query for features with status='approved' and implementation_status='none'",
-        "Invoke Claude to generate structured PRD JSON from feature details",
-        "Store prd_json in the feature row and set implementation_status='queued'",
-        "Add 'generate-prd': 'npx tsx --env-file=.env.local scripts/generate-prd.ts' to package.json",
-        "Typecheck passes"
-      ],
-      "priority": 13,
-      "status": "complete",
-      "notes": "Depends on US-012 being run first to approve features",
-      "phase": 1,
-      "startedAt": "2026-02-16T01:21:17.185604",
-      "actualDuration": 58.808866024017334
-    },
-    {
-      "id": "US-014",
-      "title": "Queue Management Routes for Ralph",
-      "description": "As Ralph (the AI agent), I want queue management endpoints so that I can fetch and update feature implementation status",
-      "acceptanceCriteria": [
-        "Create src/app/api/v1/features/queue/route.ts with GET (list queued features ordered by vote_count desc where implementation_status='queued', scope: features:read)",
-        "Create src/app/api/v1/features/[id]/queue/route.ts with POST (queue a feature, session auth only, sets implementation_status='queued', returns error if prd_json not set)",
-        "Create src/app/api/v1/features/[id]/implementation/route.ts with PUT (update implementation status, body: { status: 'in_progress' | 'completed' | 'failed' }, scope: features:read)",
-        "All routes use envelope pattern from apiResponse.ts",
-        "Typecheck passes"
-      ],
-      "priority": 14,
-      "status": "complete",
-      "notes": "Depends on US-001",
-      "phase": 1,
-      "startedAt": "2026-02-16T00:45:57.742098",
-      "actualDuration": 369.6701428890228
-    },
-    {
-      "id": "US-015",
-      "title": "Ralph Trigger Script",
-      "description": "As a developer, I want a script that outputs the next queued feature's PRD so that Ralph can consume it",
-      "acceptanceCriteria": [
-        "Create scripts/trigger-ralph.ts using createClient from @supabase/supabase-js with env vars",
-        "Fetch next queued feature via direct Supabase query (implementation_status='queued', ordered by vote_count desc)",
-        "Mark feature as in_progress",
-        "Output Ralph-compatible PRD JSON to stdout",
-        "Add 'trigger-ralph': 'npx tsx --env-file=.env.local scripts/trigger-ralph.ts' to package.json",
-        "Typecheck passes"
-      ],
-      "priority": 15,
-      "status": "complete",
-      "notes": "Depends on US-013 to populate prd_json",
-      "phase": 1,
-      "startedAt": "2026-02-16T01:22:51.362276",
-      "actualDuration": 49.3455491065979
-    },
-    {
-      "id": "US-016",
-      "title": "Security E2E Tests",
-      "description": "As a developer, I want E2E tests for input validation so that I can ensure security measures work",
-      "acceptanceCriteria": [
-        "Create e2e/security.spec.ts with test that submitting feature with empty title returns 400",
-        "Test that submitting feature with title > 200 chars returns 400",
-        "Test that RSVP with invalid status returns 400",
-        "All tests pass with npm test",
-        "Typecheck passes"
-      ],
-      "priority": 16,
-      "status": "complete",
-      "notes": "Can be developed in parallel with other features",
-      "phase": 1,
-      "startedAt": "2026-02-16T00:52:38.071422",
-      "actualDuration": 253.79346084594727
-    },
-    {
-      "id": "US-017",
-      "title": "v1 API E2E Tests",
-      "description": "As a developer, I want E2E tests for v1 API endpoints so that I can ensure API authentication and authorization work correctly",
-      "acceptanceCriteria": [
-        "Create e2e/api-v1.spec.ts with tests for v1 events endpoints (list, create, get, update, delete) with session auth",
-        "Test v1 public event endpoint",
-        "Test v1 guests endpoints",
-        "Test v1 features endpoints",
-        "Test API key creation and authentication",
-        "Test scope enforcement (requests without required scope return 403)",
-        "All tests pass with npm test",
-        "Typecheck passes"
-      ],
-      "priority": 17,
-      "status": "complete",
-      "notes": "Depends on US-002, US-004, US-005, US-006, US-007",
-      "phase": 1,
-      "startedAt": "2026-02-16T01:12:05.320984",
-      "actualDuration": 338.7113993167877
-    },
-    {
-      "id": "US-018",
-      "title": "Feature Board v2 E2E Tests",
-      "description": "As a developer, I want E2E tests for the enhanced feature board so that I can ensure the new UI works correctly",
-      "acceptanceCriteria": [
-        "Create e2e/features-v2.spec.ts with test for feature submission with type selector (feature vs bug)",
-        "Test that filter tabs work (clicking each tab shows appropriate features)",
-        "Test that AI verdict badge displays correctly (seed a feature with ai_verdict set)",
-        "All tests pass with npm test",
-        "Typecheck passes"
-      ],
-      "priority": 18,
-      "status": "complete",
-      "notes": "Depends on US-009, US-010, US-011",
-      "phase": 1,
-      "startedAt": "2026-02-16T00:57:52.301006",
-      "actualDuration": 833.7816660404205
+        "The RSVP page at src/app/rsvp/[token]/ displays the event location and maps link using the same presentation as the public event page",
+        "The location section appears above the RSVP form so guests see it before responding",
+        "Extract the location display into a shared component at src/components/EventLocation.tsx to avoid duplication between the public page and RSVP page",
+        "The shared component accepts location (string | null) and mapsLink (string | null) props",
+        "TypeScript typecheck passes with no errors (npm run build)",
+        "E2E test in e2e/rsvp.spec.ts verifies location appears on the RSVP page for a seeded event with location data"
+      ]
     }
   ],
   "metadata": {
-    "createdAt": "2026-02-15T23:11:14.373148",
-    "lastUpdatedAt": "2026-02-16T01:23:40.707823",
-    "totalStories": 18,
-    "completedStories": 17,
-    "currentIteration": 2
+    "createdAt": "2026-02-16T13:03:09.496Z",
+    "lastUpdatedAt": "2026-02-16T08:03:38.500942",
+    "totalStories": 3,
+    "completedStories": 0,
+    "currentIteration": 1
   },
   "phases": {
     "1": {
       "name": "Phase 1",
       "description": ""
     }
-  }
+  },
+  "branchName": "ralph/pipeline-feature"
 }

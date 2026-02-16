@@ -70,6 +70,10 @@ ${featureList}`;
   const escapedPrompt = prompt.replace(/"/g, '\\"').replace(/\n/g, "\\n");
 
   console.log("Asking Claude to evaluate features...");
+  // Strip CLAUDECODE env var so claude CLI doesn't refuse to run nested
+  const env = { ...process.env };
+  delete env.CLAUDECODE;
+
   let result: string;
   try {
     result = execSync(
@@ -77,6 +81,7 @@ ${featureList}`;
       {
         encoding: "utf-8",
         maxBuffer: 1024 * 1024,
+        env,
       }
     ).trim();
   } catch (err) {

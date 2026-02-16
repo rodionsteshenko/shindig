@@ -14,7 +14,9 @@
     "db:seed-demo": "npx tsx --env-file=.env.local scripts/seed-demo.ts",
     "judge": "npx tsx --env-file=.env.local scripts/judge-features.ts",
     "generate-prd": "npx tsx --env-file=.env.local scripts/generate-prd.ts",
-    "trigger-ralph": "npx tsx --env-file=.env.local scripts/trigger-ralph.ts"
+    "trigger-ralph": "npx tsx --env-file=.env.local scripts/trigger-ralph.ts",
+    "pipeline": "npx tsx --env-file=.env.local scripts/pipeline.ts",
+    "seed-roadmap": "npx tsx --env-file=.env.local scripts/seed-features-from-roadmap.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",
