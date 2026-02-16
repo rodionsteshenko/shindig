@@ -171,10 +171,11 @@
         "Verify in browser: can toggle between feature/bug, form submits with correct type"
       ],
       "priority": 9,
-      "status": "in_progress",
+      "status": "complete",
       "notes": "Depends on US-008",
       "phase": 1,
-      "startedAt": "2026-02-16T00:19:30.458095"
+      "startedAt": "2026-02-16T00:19:30.458095",
+      "actualDuration": 487.0470597743988
     },
     {
       "id": "US-010",
@@ -334,9 +335,9 @@
   ],
   "metadata": {
     "createdAt": "2026-02-15T23:11:14.373148",
-    "lastUpdatedAt": "2026-02-16T00:19:30.458119",
+    "lastUpdatedAt": "2026-02-16T00:27:37.505159",
     "totalStories": 18,
-    "completedStories": 7,
+    "completedStories": 8,
     "currentIteration": 2
   },
   "phases": {
