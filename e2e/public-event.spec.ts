@@ -128,4 +128,21 @@ test.describe("Public Event Page", () => {
     await page.goto("/e/non-existent-event-slug-12345");
     await expect(page.getByText("404")).toBeVisible();
   });
+
+  test("redirects from event ID (UUID) to slug URL", async ({ page }) => {
+    // Navigate to /e/{event-id} (UUID)
+    const response = await page.goto(`/e/${testEvent.id}`);
+
+    // Should redirect to /e/{slug}
+    await expect(page).toHaveURL(`/e/${testEvent.slug}`);
+
+    // Event page should render correctly after redirect
+    await expect(page.getByRole("heading", { name: testEvent.title })).toBeVisible();
+  });
+
+  test("returns 404 for non-existent UUID", async ({ page }) => {
+    // A valid UUID format but non-existent event
+    await page.goto("/e/00000000-0000-0000-0000-000000000000");
+    await expect(page.getByText("404")).toBeVisible();
+  });
 });

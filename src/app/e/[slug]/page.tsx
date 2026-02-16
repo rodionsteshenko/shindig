@@ -1,7 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { formatDate, formatTime } from "@/lib/utils";
+import { formatDate, formatTime, isUUID } from "@/lib/utils";
 import EventLocation from "@/components/EventLocation";
 import type { Event } from "@/lib/types";
 import type { Metadata } from "next";
@@ -13,6 +13,29 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const supabase = await createClient();
+
+  // If UUID, look up by ID first
+  if (isUUID(slug)) {
+    const { data: eventById } = await supabase
+      .from("events")
+      .select("title, description, cover_image_url")
+      .eq("id", slug)
+      .eq("is_public", true)
+      .single();
+
+    if (eventById) {
+      return {
+        title: `${eventById.title} — Shindig`,
+        description: eventById.description || `You're invited to ${eventById.title}`,
+        openGraph: {
+          title: eventById.title,
+          description: eventById.description || `You're invited to ${eventById.title}`,
+          images: eventById.cover_image_url ? [eventById.cover_image_url] : undefined,
+        },
+      };
+    }
+  }
+
   const { data: event } = await supabase
     .from("events")
     .select("title, description, cover_image_url")
@@ -36,6 +59,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function EventPage({ params }: Props) {
   const { slug } = await params;
   const supabase = await createClient();
+
+  // If the parameter is a UUID, redirect to the canonical slug URL
+  if (isUUID(slug)) {
+    const { data: eventById } = await supabase
+      .from("events")
+      .select("slug")
+      .eq("id", slug)
+      .eq("is_public", true)
+      .single();
+
+    if (eventById) {
+      redirect(`/e/${eventById.slug}`);
+    }
+    // If no event found by ID, fall through to normal slug lookup (which will 404)
+  }
 
   const { data: event } = await supabase
     .from("events")

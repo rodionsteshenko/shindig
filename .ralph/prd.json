@@ -25,7 +25,7 @@
       "id": "US-002",
       "phase": 1,
       "title": "Resolve public event page by slug",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 1,
       "description": "As a guest, I want to visit shindig.app/e/{slug} and see the correct event page, so that I can view event details from a clean, memorable URL.",
       "acceptanceCriteria": [
@@ -36,7 +36,9 @@
         "TypeScript typecheck passes with no errors (npm run build)",
         "E2E test in e2e/public-event.spec.ts verifies navigating to /e/{slug} renders the correct event"
       ],
-      "startedAt": "2026-02-16T10:36:01.511006"
+      "startedAt": "2026-02-16T10:36:01.511006",
+      "actualDuration": 220.60600304603577,
+      "iterationNumber": 3
     },
     {
       "id": "US-003",
@@ -62,7 +64,7 @@
       "id": "US-004",
       "phase": 2,
       "title": "Redirect old or alternate event URLs to the canonical slug URL",
-      "status": "incomplete",
+      "status": "in_progress",
       "priority": 3,
       "description": "As a guest, I want to be redirected to the correct event page if I visit an outdated or ID-based event URL, so that I always land on the right page and bookmarks stay valid.",
       "acceptanceCriteria": [
@@ -70,7 +72,8 @@
         "The redirect is handled in src/app/e/[slug]/page.tsx by detecting whether the parameter is a UUID vs a slug",
         "TypeScript typecheck passes with no errors (npm run build)",
         "E2E test in e2e/public-event.spec.ts verifies that visiting /e/{event-id} redirects to /e/{slug}"
-      ]
+      ],
+      "startedAt": "2026-02-16T10:39:50.110253"
     }
   ],
   "branchName": "main",
@@ -82,9 +85,9 @@
   },
   "metadata": {
     "createdAt": "2026-02-16T15:24:46.587Z",
-    "lastUpdatedAt": "2026-02-16T10:36:01.511032",
+    "lastUpdatedAt": "2026-02-16T10:39:50.110282",
     "totalStories": 4,
-    "completedStories": 2,
-    "currentIteration": 2
+    "completedStories": 3,
+    "currentIteration": 3
   }
 }
