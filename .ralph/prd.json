@@ -150,10 +150,11 @@
         "Typecheck passes"
       ],
       "priority": 8,
-      "status": "in_progress",
+      "status": "complete",
       "notes": "Small change to existing route",
       "phase": 1,
-      "startedAt": "2026-02-16T00:04:48.292585"
+      "startedAt": "2026-02-16T00:04:48.292585",
+      "actualDuration": 57.834779262542725
     },
     {
       "id": "US-009",
@@ -330,9 +331,9 @@
   ],
   "metadata": {
     "createdAt": "2026-02-15T23:11:14.373148",
-    "lastUpdatedAt": "2026-02-16T00:04:48.292617",
+    "lastUpdatedAt": "2026-02-16T00:05:46.127361",
     "totalStories": 18,
-    "completedStories": 5,
+    "completedStories": 6,
     "currentIteration": 2
   },
   "phases": {
