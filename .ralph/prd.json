@@ -1,81 +1,84 @@
 {
   "project": "Shindig",
-  "description": "Add location support to events: an address field and optional Google Maps link so guests can easily find the venue.",
+  "description": "Implement clean, human-readable event URLs at /e/{slug} so events are easily shareable and brandable. This covers slug generation during event creation, routing to the public event page via slug, and handling invalid or duplicate slugs gracefully.",
   "userStories": [
     {
       "id": "US-001",
       "phase": 1,
-      "title": "Add location fields to event creation form",
-      "status": "complete",
+      "title": "Auto-generate a URL slug when creating an event",
+      "status": "incomplete",
       "priority": 1,
-      "description": "As an event host, I want to enter a venue address and optional Google Maps link when creating an event so that my guests know where to go.",
+      "description": "As an event host, I want a URL-friendly slug to be automatically generated from my event title when I create an event, so that my event has a clean, shareable URL without extra effort.",
       "acceptanceCriteria": [
-        "The event creation form at src/app/create/ includes a 'Location / Address' text input field",
-        "The form includes an optional 'Google Maps Link' URL input field below the address",
-        "Both fields are optional \u2014 events can still be created without a location",
-        "The Google Maps link field validates that the URL starts with https:// when provided",
-        "Submitting the form persists location and maps_link to the events table in Supabase",
-        "The events table has 'location' (text, nullable) and 'maps_link' (text, nullable) columns",
+        "When an event is created via the API route in src/app/api/events/, a slug is generated from the event title (lowercased, spaces replaced with hyphens, special characters stripped)",
+        "If a generated slug already exists in the database, a short numeric or random suffix is appended to ensure uniqueness",
+        "The slug is stored in the events table and returned in the API response",
+        "The slug column has a unique constraint in the database",
         "TypeScript typecheck passes with no errors (npm run build)",
-        "E2E test in e2e/event-creation.spec.ts verifies the location and maps link fields render and submit correctly"
-      ],
-      "startedAt": "2026-02-16T08:06:45.165218",
-      "actualDuration": 295.0618631839752,
-      "iterationNumber": 2
+        "E2E test in e2e/event-creation.spec.ts verifies that a created event has a valid slug in the response"
+      ]
     },
     {
       "id": "US-002",
       "phase": 1,
-      "title": "Display location on public event page",
-      "status": "complete",
+      "title": "Resolve public event page by slug",
+      "status": "incomplete",
       "priority": 1,
-      "description": "As an event guest, I want to see the event's address and a clickable Google Maps link on the public event page so that I can easily navigate to the venue.",
+      "description": "As a guest, I want to visit shindig.app/e/{slug} and see the correct event page, so that I can view event details from a clean, memorable URL.",
       "acceptanceCriteria": [
-        "The public event page at src/app/e/[slug]/ displays the location address when present",
-        "When a maps_link is provided, the address is wrapped in a clickable link that opens Google Maps in a new tab (target='_blank', rel='noopener noreferrer')",
-        "When no maps_link is provided but location is set, the address text is displayed with an auto-generated Google Maps search link (https://www.google.com/maps/search/?api=1&query=<encoded address>)",
-        "When no location is set, the location section is not rendered at all",
-        "A map pin icon (from an inline SVG or existing icon set) is shown next to the address",
-        "The location display is mobile-responsive following the existing Tailwind mobile-first pattern",
+        "The dynamic route at src/app/e/[slug]/page.tsx fetches the event by slug from Supabase instead of by ID",
+        "If the slug matches an existing event, the full public event page renders with all event details (title, date, description, cover image, location, gifts, calendar link)",
+        "If the slug does not match any event, a 404 page or 'Event not found' message is displayed",
+        "Existing links and references to event pages throughout the app use the slug-based URL",
         "TypeScript typecheck passes with no errors (npm run build)",
-        "E2E test in e2e/public-event.spec.ts verifies location and maps link render correctly for seeded events"
-      ],
-      "startedAt": "2026-02-16T08:03:38.500915",
-      "actualDuration": 145.2333791255951,
-      "iterationNumber": 1
+        "E2E test in e2e/public-event.spec.ts verifies navigating to /e/{slug} renders the correct event"
+      ]
     },
     {
       "id": "US-003",
-      "phase": 1,
-      "title": "Include location in RSVP and guest-facing views",
-      "status": "complete",
+      "phase": 2,
+      "title": "Allow hosts to customize the event slug",
+      "status": "in_progress",
       "priority": 2,
-      "description": "As a guest viewing my RSVP page, I want to see the event location so that I have all the details I need in one place.",
+      "description": "As an event host, I want to optionally set a custom slug for my event during creation, so that I can choose a memorable, branded URL for my event.",
       "acceptanceCriteria": [
-        "The RSVP page at src/app/rsvp/[token]/ displays the event location and maps link using the same presentation as the public event page",
-        "The location section appears above the RSVP form so guests see it before responding",
-        "Extract the location display into a shared component at src/components/EventLocation.tsx to avoid duplication between the public page and RSVP page",
-        "The shared component accepts location (string | null) and mapsLink (string | null) props",
+        "The event creation form in src/app/create/page.tsx includes an optional 'Custom URL' input field that shows a preview like shindig.app/e/{slug}",
+        "If the host provides a custom slug, it is validated (lowercase, alphanumeric and hyphens only, 3-60 characters) and checked for uniqueness via an API call",
+        "If the custom slug is already taken, the user sees an inline error message before submitting",
+        "If no custom slug is provided, the auto-generated slug from US-001 is used",
+        "The API route in src/app/api/events/ accepts an optional slug field and validates it server-side",
         "TypeScript typecheck passes with no errors (npm run build)",
-        "E2E test in e2e/rsvp.spec.ts verifies location appears on the RSVP page for a seeded event with location data"
+        "E2E test in e2e/event-creation.spec.ts verifies that a custom slug can be set and the event is accessible at that slug"
       ],
-      "startedAt": "2026-02-16T08:11:48.192645",
-      "actualDuration": 292.12684988975525,
-      "iterationNumber": 3
+      "startedAt": "2026-02-16T10:25:08.955968"
+    },
+    {
+      "id": "US-004",
+      "phase": 2,
+      "title": "Redirect old or alternate event URLs to the canonical slug URL",
+      "status": "incomplete",
+      "priority": 3,
+      "description": "As a guest, I want to be redirected to the correct event page if I visit an outdated or ID-based event URL, so that I always land on the right page and bookmarks stay valid.",
+      "acceptanceCriteria": [
+        "If an event is accessed via its database ID at /e/{id}, the server redirects (HTTP 301) to /e/{slug}",
+        "The redirect is handled in src/app/e/[slug]/page.tsx by detecting whether the parameter is a UUID vs a slug",
+        "TypeScript typecheck passes with no errors (npm run build)",
+        "E2E test in e2e/public-event.spec.ts verifies that visiting /e/{event-id} redirects to /e/{slug}"
+      ]
     }
   ],
-  "metadata": {
-    "createdAt": "2026-02-16T13:03:09.496Z",
-    "lastUpdatedAt": "2026-02-16T08:16:40.319495",
-    "totalStories": 3,
-    "completedStories": 3,
-    "currentIteration": 3
-  },
+  "branchName": "main",
   "phases": {
     "1": {
       "name": "Phase 1",
       "description": ""
     }
   },
-  "branchName": "ralph/pipeline-feature"
+  "metadata": {
+    "createdAt": "2026-02-16T15:24:46.587Z",
+    "lastUpdatedAt": "2026-02-16T10:25:08.955993",
+    "totalStories": 4,
+    "completedStories": 0,
+    "currentIteration": 1
+  }
 }

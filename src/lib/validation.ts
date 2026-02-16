@@ -12,6 +12,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const URL_RE = /^https?:\/\/.+/;
 const HTTPS_URL_RE = /^https:\/\/.+/;
 const PHONE_RE = /^[+\d][\d\s\-().]{6,20}$/;
+const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function ok(): ValidationResult {
   return { valid: true, errors: {} };
@@ -19,6 +20,20 @@ function ok(): ValidationResult {
 
 function fail(errors: Record<string, string>): ValidationResult {
   return { valid: false, errors };
+}
+
+export function validateSlug(slug: string): ValidationResult {
+  const errors: Record<string, string> = {};
+
+  if (slug.length < 3) {
+    errors.slug = "URL must be at least 3 characters";
+  } else if (slug.length > 60) {
+    errors.slug = "URL must be 60 characters or less";
+  } else if (!SLUG_RE.test(slug)) {
+    errors.slug = "URL can only contain lowercase letters, numbers, and hyphens";
+  }
+
+  return Object.keys(errors).length ? fail(errors) : ok();
 }
 
 export function validateEventInput(body: Record<string, unknown>): ValidationResult {
@@ -52,6 +67,14 @@ export function validateEventInput(body: Record<string, unknown>): ValidationRes
 
   if (body.gift_message != null && typeof body.gift_message === "string" && body.gift_message.length > 1000) {
     errors.gift_message = "Gift message must be 1000 characters or less";
+  }
+
+  // Validate custom slug if provided
+  if (body.slug != null && typeof body.slug === "string" && body.slug.trim()) {
+    const slugValidation = validateSlug(body.slug);
+    if (!slugValidation.valid) {
+      errors.slug = slugValidation.errors.slug;
+    }
   }
 
   return Object.keys(errors).length ? fail(errors) : ok();

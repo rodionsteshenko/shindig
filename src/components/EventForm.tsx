@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { coverPresets } from "@/lib/coverPresets";
 import type { Event } from "@/lib/types";
@@ -8,6 +8,8 @@ import type { Event } from "@/lib/types";
 interface EventFormProps {
   event?: Event;
 }
+
+const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export default function EventForm({ event }: EventFormProps) {
   const router = useRouter();
@@ -34,6 +36,13 @@ export default function EventForm({ event }: EventFormProps) {
   const [giftMessage, setGiftMessage] = useState(event?.gift_message ?? "");
   const [mapsUrlError, setMapsUrlError] = useState<string | null>(null);
 
+  // Custom slug state
+  const [customSlug, setCustomSlug] = useState("");
+  const [slugError, setSlugError] = useState<string | null>(null);
+  const [slugChecking, setSlugChecking] = useState(false);
+  const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
+  const slugCheckTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   function toLocalDatetime(iso: string): string {
     const d = new Date(iso);
     const offset = d.getTimezoneOffset();
@@ -51,12 +60,110 @@ export default function EventForm({ event }: EventFormProps) {
     return true;
   }
 
+  // Validate slug format locally
+  function validateSlugFormat(slug: string): string | null {
+    if (!slug.trim()) return null; // Empty is valid (optional field)
+    if (slug.length < 3) return "URL must be at least 3 characters";
+    if (slug.length > 60) return "URL must be 60 characters or less";
+    if (!SLUG_RE.test(slug)) return "URL can only contain lowercase letters, numbers, and hyphens";
+    return null;
+  }
+
+  // Check slug availability with debounce
+  const checkSlugAvailability = useCallback(async (slug: string) => {
+    if (!slug.trim()) {
+      setSlugAvailable(null);
+      setSlugError(null);
+      return;
+    }
+
+    const formatError = validateSlugFormat(slug);
+    if (formatError) {
+      setSlugError(formatError);
+      setSlugAvailable(null);
+      return;
+    }
+
+    setSlugChecking(true);
+    setSlugError(null);
+
+    try {
+      const res = await fetch(`/api/events/check-slug?slug=${encodeURIComponent(slug)}`);
+      const data = await res.json();
+
+      if (data.error) {
+        setSlugError(data.error);
+        setSlugAvailable(false);
+      } else {
+        setSlugAvailable(data.available);
+        if (!data.available) {
+          setSlugError("This URL is already taken");
+        }
+      }
+    } catch {
+      setSlugError("Failed to check URL availability");
+      setSlugAvailable(null);
+    } finally {
+      setSlugChecking(false);
+    }
+  }, []);
+
+  // Handle slug input change with debounce
+  function handleSlugChange(value: string) {
+    // Normalize input: lowercase and replace spaces with hyphens
+    const normalized = value.toLowerCase().replace(/\s+/g, "-");
+    setCustomSlug(normalized);
+    setSlugAvailable(null);
+
+    // Clear any pending timeout
+    if (slugCheckTimeoutRef.current) {
+      clearTimeout(slugCheckTimeoutRef.current);
+    }
+
+    // Debounce the availability check
+    if (normalized.trim()) {
+      const formatError = validateSlugFormat(normalized);
+      if (formatError) {
+        setSlugError(formatError);
+      } else {
+        setSlugError(null);
+        slugCheckTimeoutRef.current = setTimeout(() => {
+          checkSlugAvailability(normalized);
+        }, 500);
+      }
+    } else {
+      setSlugError(null);
+    }
+  }
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (slugCheckTimeoutRef.current) {
+        clearTimeout(slugCheckTimeoutRef.current);
+      }
+    };
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     // Validate maps URL before submission
     if (!validateMapsUrl(mapsUrl)) {
       return;
+    }
+
+    // Validate custom slug if provided
+    if (customSlug.trim()) {
+      const formatError = validateSlugFormat(customSlug);
+      if (formatError) {
+        setSlugError(formatError);
+        return;
+      }
+      if (slugAvailable === false) {
+        setSlugError("This URL is already taken");
+        return;
+      }
     }
 
     setLoading(true);
@@ -75,6 +182,7 @@ export default function EventForm({ event }: EventFormProps) {
       allow_plus_ones: allowPlusOnes,
       gift_registry_url: giftRegistryUrl || null,
       gift_message: giftMessage || null,
+      slug: customSlug.trim() || null,
     };
 
     const url = event
@@ -121,6 +229,40 @@ export default function EventForm({ event }: EventFormProps) {
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-shindig-500 focus:border-transparent outline-none"
         />
       </div>
+
+      {/* Custom URL (only for new events) */}
+      {!event && (
+        <div>
+          <label htmlFor="custom_slug" className="block text-sm font-medium text-gray-700 mb-1">
+            Custom URL
+          </label>
+          <div className="flex items-center">
+            <span className="text-gray-500 text-sm mr-1">shindig.app/e/</span>
+            <input
+              id="custom_slug"
+              type="text"
+              value={customSlug}
+              onChange={(e) => handleSlugChange(e.target.value)}
+              placeholder="my-awesome-party"
+              className={`flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-shindig-500 focus:border-transparent outline-none ${
+                slugError ? "border-red-500" : slugAvailable === true ? "border-green-500" : "border-gray-300"
+              }`}
+            />
+            {slugChecking && (
+              <span className="ml-2 text-gray-500 text-sm">Checking...</span>
+            )}
+            {!slugChecking && slugAvailable === true && (
+              <span className="ml-2 text-green-600 text-sm">Available</span>
+            )}
+          </div>
+          {slugError && (
+            <p className="text-red-600 text-sm mt-1">{slugError}</p>
+          )}
+          <p className="text-gray-500 text-xs mt-1">
+            Optional. Use lowercase letters, numbers, and hyphens. Leave blank for an auto-generated URL.
+          </p>
+        </div>
+      )}
 
       {/* Description */}
       <div>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateSlug } from "@/lib/utils";
-import { validateEventInput, MAX_EVENTS_PER_ACCOUNT } from "@/lib/validation";
+import { validateEventInput, validateSlug, MAX_EVENTS_PER_ACCOUNT } from "@/lib/validation";
 import { sanitizeError } from "@/lib/apiResponse";
 
 export async function POST(request: Request) {
@@ -33,7 +33,34 @@ export async function POST(request: Request) {
     );
   }
 
-  const slug = generateSlug(body.title);
+  // Use custom slug if provided and valid, otherwise auto-generate
+  let slug: string;
+  if (body.slug && typeof body.slug === "string" && body.slug.trim()) {
+    const customSlug = body.slug.trim();
+    // Validate slug format
+    const slugValidation = validateSlug(customSlug);
+    if (!slugValidation.valid) {
+      return NextResponse.json(
+        { error: "Validation failed", errors: slugValidation.errors },
+        { status: 400 }
+      );
+    }
+    // Check if slug is already taken
+    const { data: existingEvent } = await supabase
+      .from("events")
+      .select("id")
+      .eq("slug", customSlug)
+      .maybeSingle();
+    if (existingEvent) {
+      return NextResponse.json(
+        { error: "Validation failed", errors: { slug: "This URL is already taken" } },
+        { status: 400 }
+      );
+    }
+    slug = customSlug;
+  } else {
+    slug = generateSlug(body.title);
+  }
 
   try {
     const { data, error } = await supabase
