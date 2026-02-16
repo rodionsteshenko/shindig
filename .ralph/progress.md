@@ -404,3 +404,21 @@ Run in Supabase SQL Editor to enable database tests.
 ```
 
 ---
+
+## Iteration 1 - US-002 - 2026-02-16T08:06:03.733669
+**Story**: Display location on public event page
+**Status**: ✅ PASSED
+
+**Agent Output**:
+```
+[96m╔══════════════════════════════════════════════════════════════════════╗[0m
+[96m║[0m  [1mRALPH → CLAUDE[0m                                                      [96m║[0m
+[96m║[0m[90m  Model: claude-opus-4-5  │  Session: 5506ce11                        [0m[96m║[0m
+[96m╚══════════════════════════════════════════════════════════════════════╝[0m
+
+
+[90m[08:03:43][0m 📁 [1mI'll start by exploring the existing codebase to understand ...[0m
+           [90m├──[0m [97mTodoWrite:[...
+```
+
+---

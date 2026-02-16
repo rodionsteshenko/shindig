@@ -32,6 +32,7 @@ export default function EventForm({ event }: EventFormProps) {
   const [allowPlusOnes, setAllowPlusOnes] = useState(event?.allow_plus_ones ?? true);
   const [giftRegistryUrl, setGiftRegistryUrl] = useState(event?.gift_registry_url ?? "");
   const [giftMessage, setGiftMessage] = useState(event?.gift_message ?? "");
+  const [mapsUrlError, setMapsUrlError] = useState<string | null>(null);
 
   function toLocalDatetime(iso: string): string {
     const d = new Date(iso);
@@ -40,8 +41,24 @@ export default function EventForm({ event }: EventFormProps) {
     return local.toISOString().slice(0, 16);
   }
 
+  function validateMapsUrl(url: string): boolean {
+    if (!url.trim()) return true; // Empty is valid (optional field)
+    if (!url.startsWith("https://")) {
+      setMapsUrlError("Maps link must start with https://");
+      return false;
+    }
+    setMapsUrlError(null);
+    return true;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Validate maps URL before submission
+    if (!validateMapsUrl(mapsUrl)) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -167,7 +184,7 @@ export default function EventForm({ event }: EventFormProps) {
       <div className="grid md:grid-cols-2 gap-4">
         <div>
           <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-            Location
+            Location / Address
           </label>
           <input
             id="location"
@@ -180,16 +197,25 @@ export default function EventForm({ event }: EventFormProps) {
         </div>
         <div>
           <label htmlFor="maps_url" className="block text-sm font-medium text-gray-700 mb-1">
-            Maps Link
+            Google Maps Link
           </label>
           <input
             id="maps_url"
             type="url"
             value={mapsUrl}
-            onChange={(e) => setMapsUrl(e.target.value)}
+            onChange={(e) => {
+              setMapsUrl(e.target.value);
+              if (mapsUrlError) validateMapsUrl(e.target.value);
+            }}
+            onBlur={() => validateMapsUrl(mapsUrl)}
             placeholder="https://maps.google.com/..."
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-shindig-500 focus:border-transparent outline-none"
+            className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-shindig-500 focus:border-transparent outline-none ${
+              mapsUrlError ? "border-red-500" : "border-gray-300"
+            }`}
           />
+          {mapsUrlError && (
+            <p className="text-red-600 text-sm mt-1">{mapsUrlError}</p>
+          )}
         </div>
       </div>
 

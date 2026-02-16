@@ -20,8 +20,8 @@ test.describe("Event Creation", () => {
     await expect(page.getByLabel(/Description/i)).toBeVisible();
     await expect(page.getByLabel(/Start Date/i)).toBeVisible();
     await expect(page.getByLabel(/End Date/i)).toBeVisible();
-    await expect(page.getByLabel(/Location/i)).toBeVisible();
-    await expect(page.getByLabel(/Maps Link/i)).toBeVisible();
+    await expect(page.getByLabel(/Location \/ Address/i)).toBeVisible();
+    await expect(page.getByLabel(/Google Maps Link/i)).toBeVisible();
     await expect(page.getByText(/Cover Image/i)).toBeVisible();
     await expect(page.getByRole("button", { name: /Create Event/i })).toBeVisible();
   });
@@ -62,9 +62,65 @@ test.describe("Event Creation", () => {
     await page.getByLabel(/Start Date/i).fill(dateStr);
 
     await page.getByLabel(/Description/i).fill("A test event created by E2E tests");
-    await page.getByLabel(/Location/i).fill("Test Venue");
+    await page.getByLabel(/Location \/ Address/i).fill("Test Venue");
 
     // Submit the form
+    await page.getByRole("button", { name: /Create Event/i }).click();
+
+    // Should redirect to dashboard event page
+    await page.waitForURL("**/dashboard/**", { timeout: 10000 });
+  });
+
+  test("shows validation error for non-https Google Maps link", async ({ page }) => {
+    await loginAsTestUser(page);
+    await page.goto("/create");
+
+    // Fill in required fields
+    await page.getByLabel(/Event Title/i).fill("E2E Test Validation");
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const dateStr = tomorrow.toISOString().slice(0, 16);
+    await page.getByLabel(/Start Date/i).fill(dateStr);
+
+    // Enter an invalid (http) maps URL
+    await page.getByLabel(/Google Maps Link/i).fill("http://maps.google.com/test");
+    await page.getByLabel(/Google Maps Link/i).blur();
+
+    // Should show validation error
+    await expect(page.getByText("Maps link must start with https://")).toBeVisible();
+  });
+
+  test("can submit event with location and Google Maps link", async ({ page }) => {
+    await loginAsTestUser(page);
+    await page.goto("/create");
+
+    // Fill in required fields
+    await page.getByLabel(/Event Title/i).fill("E2E Test Location Event");
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const dateStr = tomorrow.toISOString().slice(0, 16);
+    await page.getByLabel(/Start Date/i).fill(dateStr);
+
+    // Fill in location fields
+    await page.getByLabel(/Location \/ Address/i).fill("123 Test Street, Test City");
+    await page.getByLabel(/Google Maps Link/i).fill("https://maps.google.com/test");
+
+    // Submit the form
+    await page.getByRole("button", { name: /Create Event/i }).click();
+
+    // Should redirect to dashboard event page
+    await page.waitForURL("**/dashboard/**", { timeout: 10000 });
+  });
+
+  test("can submit event without location fields (optional)", async ({ page }) => {
+    await loginAsTestUser(page);
+    await page.goto("/create");
+
+    // Fill in only required fields - no location
+    await page.getByLabel(/Event Title/i).fill("E2E Test No Location");
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const dateStr = tomorrow.toISOString().slice(0, 16);
+    await page.getByLabel(/Start Date/i).fill(dateStr);
+
+    // Submit the form without filling location fields
     await page.getByRole("button", { name: /Create Event/i }).click();
 
     // Should redirect to dashboard event page

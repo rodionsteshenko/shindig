@@ -10,6 +10,7 @@ type ValidationResult = { valid: boolean; errors: Record<string, string> };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const URL_RE = /^https?:\/\/.+/;
+const HTTPS_URL_RE = /^https:\/\/.+/;
 const PHONE_RE = /^[+\d][\d\s\-().]{6,20}$/;
 
 function ok(): ValidationResult {
@@ -41,8 +42,8 @@ export function validateEventInput(body: Record<string, unknown>): ValidationRes
     errors.timezone = "Timezone is required";
   }
 
-  if (body.maps_url != null && typeof body.maps_url === "string" && body.maps_url.trim() && !URL_RE.test(body.maps_url)) {
-    errors.maps_url = "Invalid URL format";
+  if (body.maps_url != null && typeof body.maps_url === "string" && body.maps_url.trim() && !HTTPS_URL_RE.test(body.maps_url)) {
+    errors.maps_url = "Maps link must start with https://";
   }
 
   if (body.gift_registry_url != null && typeof body.gift_registry_url === "string" && body.gift_registry_url.trim() && !URL_RE.test(body.gift_registry_url)) {
