@@ -37,7 +37,7 @@ function checkLimit(
   config: RateLimitConfig
 ): { allowed: boolean; retryAfter: number } {
   // Skip rate limiting in test environment
-  if (process.env.NODE_ENV === "test") {
+  if (process.env.NODE_ENV === "test" || process.env.DISABLE_RATE_LIMIT === "true") {
     return { allowed: true, retryAfter: 0 };
   }
 

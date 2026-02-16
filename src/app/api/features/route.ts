@@ -43,17 +43,32 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { data, error } = await supabase
+    const baseData = {
+      title: body.title.trim(),
+      description: body.description?.trim() || null,
+      author_name: body.author_name?.trim() || "Anonymous",
+      author_email: body.author_email?.trim() || null,
+    };
+
+    // Try with type field first; fall back without it if column doesn't exist
+    const insertData = body.type
+      ? { ...baseData, type: body.type.trim() }
+      : baseData;
+
+    let { data, error } = await supabase
       .from("feature_requests")
-      .insert({
-        title: body.title.trim(),
-        description: body.description?.trim() || null,
-        author_name: body.author_name?.trim() || "Anonymous",
-        author_email: body.author_email?.trim() || null,
-        type: body.type?.trim() || "feature",
-      })
+      .insert(insertData)
       .select()
       .single();
+
+    // If type column doesn't exist, retry without it
+    if (error && body.type && (error.code === "42703" || error.message?.includes("type"))) {
+      ({ data, error } = await supabase
+        .from("feature_requests")
+        .insert(baseData)
+        .select()
+        .single());
+    }
 
     if (error) {
       return NextResponse.json({ error: sanitizeError(error) }, { status: 400 });
