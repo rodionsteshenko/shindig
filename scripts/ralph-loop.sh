@@ -41,7 +41,8 @@ while true; do
     git commit -m "feat: $STORY_ID - $STORY_TITLE
 
 Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
-    git push origin main
-    echo "📤 Pushed $STORY_ID to main"
+    BRANCH=$(git rev-parse --abbrev-ref HEAD)
+    git push origin "$BRANCH"
+    echo "📤 Pushed $STORY_ID to $BRANCH"
   fi
 done
