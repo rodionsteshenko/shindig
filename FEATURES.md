@@ -69,6 +69,17 @@
 - [ ] Color customization
 - [ ] Custom fonts (2-3 options)
 
+### Invitation View Tracking
+- [ ] Track when each guest opens their invitation email (via Resend webhooks)
+- [ ] Show "Viewed" / "Not viewed" status on host dashboard guest list
+- [ ] Help hosts identify who to nudge (viewed but didn't RSVP vs. never opened)
+
+### Event Polls
+- [ ] Host creates a poll (e.g. "Which date works?" or "What should we eat?")
+- [ ] Guests vote from the event page or RSVP page
+- [ ] Results visible to host (optionally to all guests)
+- [ ] Multiple poll types: single choice, multi-select, free text
+
 ### Social
 - [ ] Share event link via copy/paste
 - [ ] Open Graph preview (looks good when shared on iMessage, WhatsApp, Slack)
@@ -87,10 +98,17 @@
 - [ ] Guests claim slots, visible to all
 - [ ] Prevent duplicates
 
+### Event Check-in
+- [ ] Host can check in guests at the door (mobile-friendly UI)
+- [ ] Real-time arrival count: checked in / expected / no-show
+- [ ] QR code per guest for fast check-in (scan to mark arrived)
+
 ### After the Event
 - [ ] Photo sharing: guests upload photos to a shared album
 - [ ] Thank you message (bulk send)
 - [ ] Event recap page
+- [ ] Post-event reviews: guests leave ratings and feedback
+- [ ] Review summary visible to host, optionally public for recurring events
 
 ### Recurring Events
 - [ ] Repeat: weekly, monthly, custom
@@ -102,6 +120,13 @@
 - [ ] Table assignments (for seated events)
 - [ ] Guest tags / groups
 - [ ] Waitlist (when event is full)
+
+### Public Event Discovery
+- [ ] Browsable directory of public events at /explore
+- [ ] Filter by location, date, category
+- [ ] Search by keyword
+- [ ] Category tags on events (dinner, party, sports, meetup, workshop, etc.)
+- [ ] "Discover events near you" on landing page
 
 ### Integrations
 - [ ] Google Calendar sync
@@ -116,6 +141,23 @@
 - **Free:** 3 events/month, email only, 30 guests/event
 - **Pro ($5/mo):** Unlimited events, SMS, 200 guests, custom branding, remove footer
 - **Event Pass ($2 one-time):** One premium event (for infrequent users)
+
+### Guest Contributions
+- [ ] Embedded PayPal/Venmo collection on event page
+- [ ] Use cases: group gifts, "chip in for the venue", donations
+- [ ] Host sets optional goal amount
+- [ ] Contributors visible to host, optionally to guests
+
+### Scheduled Sending
+- [ ] Schedule invitations to send at a future date/time
+- [ ] "Save the date" followed by full invitation later
+- [ ] Timezone-aware scheduling
+
+### Ticketed Events
+- [ ] Sell tickets via Stripe
+- [ ] Early bird pricing with configurable end dates
+- [ ] Promo codes for discounts
+- [ ] Capacity limits tied to ticket sales
 
 ### Premium Features
 - [ ] Custom domain (yourwedding.shindig.app)
