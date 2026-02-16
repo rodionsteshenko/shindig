@@ -3,8 +3,11 @@
  *
  * Runs the full feature processing pipeline:
  *   1. Judge open features (Claude evaluates submissions)
- *   2. Generate PRDs for approved features
+ *   2. Generate PRDs for approved features (creates GitHub Issues)
  *   3. Pick up or continue a feature for Ralph to implement
+ *
+ * Implementation tracking uses GitHub Issues with pipeline:* labels.
+ * Supabase still stores user submissions, votes, and AI verdicts.
  *
  * Designed to be run repeatedly (e.g. via launchd cron). Each invocation
  * fully implements one feature via `ralph execute`, completing all user
@@ -14,12 +17,13 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { execSync } from "child_process";
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
+import { execSync, spawnSync } from "child_process";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
 import { resolve } from "path";
 
 const ROOT = resolve(__dirname, "..");
 const PRD_PATH = resolve(ROOT, ".ralph", "prd.json");
+const LOCK_PATH = resolve(ROOT, ".ralph", "pipeline.lock");
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,6 +33,12 @@ const supabase = createClient(
 // Clean env without CLAUDECODE so nested claude/ralph calls work
 const cleanEnv = { ...process.env };
 delete cleanEnv.CLAUDECODE;
+
+interface GitHubIssue {
+  number: number;
+  title: string;
+  body: string;
+}
 
 function log(msg: string) {
   const ts = new Date().toISOString();
@@ -43,6 +53,68 @@ function runScript(name: string) {
     maxBuffer: 1024 * 1024,
     env: cleanEnv,
   });
+}
+
+/** Query GitHub Issues by label using gh CLI */
+function ghIssueList(label: string, limit = 1): GitHubIssue[] {
+  const result = spawnSync("gh", [
+    "issue", "list",
+    "--label", label,
+    "--json", "number,title,body",
+    "--limit", String(limit),
+    "--search", "sort:reactions-+1-desc",
+  ], {
+    encoding: "utf-8",
+    cwd: ROOT,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  if (result.status !== 0) {
+    log(`gh issue list failed: ${result.stderr}`);
+    return [];
+  }
+
+  try {
+    return JSON.parse(result.stdout.trim() || "[]");
+  } catch {
+    return [];
+  }
+}
+
+/** Update labels on a GitHub Issue */
+function ghIssueEditLabels(issueNumber: number, addLabels: string[], removeLabels: string[]) {
+  const args = ["issue", "edit", String(issueNumber)];
+  for (const l of addLabels) {
+    args.push("--add-label", l);
+  }
+  for (const l of removeLabels) {
+    args.push("--remove-label", l);
+  }
+  spawnSync("gh", args, {
+    encoding: "utf-8",
+    cwd: ROOT,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+}
+
+/** Close a GitHub Issue */
+function ghIssueClose(issueNumber: number) {
+  spawnSync("gh", ["issue", "close", String(issueNumber)], {
+    encoding: "utf-8",
+    cwd: ROOT,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+}
+
+/** Parse PRD JSON from the details block in an issue body */
+function parsePrdFromBody(body: string): Record<string, unknown> | null {
+  const match = body.match(/```json\n([\s\S]*?)\n```/);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[1]);
+  } catch {
+    return null;
+  }
 }
 
 /** Ensure .ralph/prd.json has the metadata/phases/branchName Ralph requires */
@@ -84,6 +156,38 @@ function ensurePrdMetadata() {
   }
 }
 
+/** Run tests and push to remote if they pass */
+function testAndPush() {
+  log("Running tests before push...");
+  const testResult = spawnSync("npm", ["test"], {
+    cwd: ROOT,
+    encoding: "utf-8",
+    stdio: "inherit",
+    env: cleanEnv,
+    timeout: 5 * 60 * 1000, // 5 minute timeout
+  });
+
+  if (testResult.status !== 0) {
+    log("Tests failed — skipping push to remote");
+    return false;
+  }
+
+  log("Tests passed — pushing to remote...");
+  const pushResult = spawnSync("git", ["push", "origin", "main"], {
+    cwd: ROOT,
+    encoding: "utf-8",
+    stdio: "inherit",
+  });
+
+  if (pushResult.status !== 0) {
+    log("Git push failed — will retry on next pipeline run");
+    return false;
+  }
+
+  log("Pushed to origin/main — Vercel will auto-deploy");
+  return true;
+}
+
 /** Check if the current .ralph/prd.json has any remaining stories */
 function prdIsComplete(): boolean {
   if (!existsSync(PRD_PATH)) return true;
@@ -99,7 +203,62 @@ function prdIsComplete(): boolean {
   }
 }
 
+function acquireLock(): boolean {
+  if (existsSync(LOCK_PATH)) {
+    // Check if the lock is stale (older than 2 hours)
+    const lockAge = Date.now() - new Date(readFileSync(LOCK_PATH, "utf-8")).getTime();
+    if (lockAge < 2 * 60 * 60 * 1000) {
+      return false;
+    }
+    log("Stale lock detected (>2h) — removing");
+  }
+  const ralphDir = resolve(ROOT, ".ralph");
+  if (!existsSync(ralphDir)) mkdirSync(ralphDir, { recursive: true });
+  writeFileSync(LOCK_PATH, new Date().toISOString());
+  return true;
+}
+
+function releaseLock() {
+  if (existsSync(LOCK_PATH)) unlinkSync(LOCK_PATH);
+}
+
+/** Update Supabase implementation_status for backward compatibility */
+async function updateSupabaseStatus(issueNumber: number, status: string) {
+  // Find the feature by its GitHub issue number stored in prd_json
+  const { data } = await supabase
+    .from("feature_requests")
+    .select("id, prd_json")
+    .eq("implementation_status", status === "completed" ? "in_progress" : "queued")
+    .not("prd_json", "is", null);
+
+  if (!data) return;
+
+  for (const row of data) {
+    const prd = row.prd_json as Record<string, unknown>;
+    if (prd.githubIssueNumber === issueNumber) {
+      await supabase
+        .from("feature_requests")
+        .update({ implementation_status: status })
+        .eq("id", row.id);
+      return;
+    }
+  }
+}
+
 async function pipeline() {
+  if (!acquireLock()) {
+    log("Pipeline already running — skipping");
+    return;
+  }
+
+  try {
+    await runPipeline();
+  } finally {
+    releaseLock();
+  }
+}
+
+async function runPipeline() {
   log("=== Shindig Feature Pipeline ===");
 
   // Step 1: Judge open features
@@ -111,7 +270,7 @@ async function pipeline() {
     // Non-fatal — continue with whatever is already approved
   }
 
-  // Step 2: Generate PRDs for approved features
+  // Step 2: Generate PRDs for approved features (also creates GitHub Issues)
   log("Step 2: Generating PRDs for approved features...");
   try {
     runScript("generate-prd.ts");
@@ -119,52 +278,46 @@ async function pipeline() {
     log(`PRD generation failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // Step 3: Check if there's a feature currently in progress
+  // Step 3: Check if there's a feature currently in progress (via GitHub Issues)
   log("Step 3: Checking for in-progress features...");
 
-  const { data: inProgress } = await supabase
-    .from("feature_requests")
-    .select("id, title, prd_json")
-    .eq("implementation_status", "in_progress")
-    .limit(1)
-    .single();
+  const inProgressIssues = ghIssueList("pipeline:in-progress", 1);
 
-  if (inProgress) {
-    // Check if Ralph has finished all stories for this feature
+  if (inProgressIssues.length > 0) {
+    const issue = inProgressIssues[0];
+
     if (prdIsComplete()) {
-      log(`Completed: "${inProgress.title}" — marking as done`);
-      await supabase
-        .from("feature_requests")
-        .update({ implementation_status: "completed" })
-        .eq("id", inProgress.id);
+      log(`Completed: "${issue.title}" (#${issue.number}) — marking as done`);
+      testAndPush();
+      ghIssueEditLabels(issue.number, ["pipeline:completed"], ["pipeline:in-progress"]);
+      ghIssueClose(issue.number);
+      await updateSupabaseStatus(issue.number, "completed");
     } else {
-      log(`Continuing: "${inProgress.title}"`);
+      log(`Continuing: "${issue.title}" (#${issue.number})`);
       ensurePrdMetadata();
       execSync("ralph execute", { cwd: ROOT, stdio: "inherit", env: cleanEnv });
+      testAndPush();
       log("=== Pipeline run complete ===");
       return;
     }
   }
 
-  // Step 4: Pick the next queued feature
+  // Step 4: Pick the next queued feature (via GitHub Issues)
   log("Step 4: Picking next queued feature...");
 
-  const { data: next } = await supabase
-    .from("feature_requests")
-    .select("id, title, prd_json, vote_count")
-    .eq("implementation_status", "queued")
-    .order("vote_count", { ascending: false })
-    .limit(1)
-    .single();
+  const queuedIssues = ghIssueList("pipeline:queued", 1);
 
-  if (!next) {
+  if (queuedIssues.length === 0) {
     log("No queued features — nothing to implement.");
     log("=== Pipeline run complete ===");
     return;
   }
 
-  if (!next.prd_json) {
-    log(`Feature "${next.title}" has no PRD JSON — skipping`);
+  const next = queuedIssues[0];
+  const prd = parsePrdFromBody(next.body);
+
+  if (!prd) {
+    log(`Issue #${next.number} "${next.title}" has no parseable PRD — skipping`);
     log("=== Pipeline run complete ===");
     return;
   }
@@ -173,7 +326,6 @@ async function pipeline() {
   const ralphDir = resolve(ROOT, ".ralph");
   if (!existsSync(ralphDir)) mkdirSync(ralphDir, { recursive: true });
 
-  const prd = next.prd_json as Record<string, unknown>;
   const stories = (prd.userStories as unknown[]) ?? [];
   const now = new Date().toISOString();
   prd.branchName = "main";
@@ -187,22 +339,27 @@ async function pipeline() {
   };
 
   writeFileSync(PRD_PATH, JSON.stringify(prd, null, 2));
-  log(`PRD written for: "${next.title}" (${next.vote_count} votes)`);
+  log(`PRD written for: "${next.title}" (#${next.number})`);
 
-  // Mark as in_progress
-  await supabase
-    .from("feature_requests")
-    .update({ implementation_status: "in_progress" })
-    .eq("id", next.id);
+  // Mark as in-progress on GitHub
+  ghIssueEditLabels(next.number, ["pipeline:in-progress"], ["pipeline:queued"]);
+
+  // Backward compat: update Supabase
+  await updateSupabaseStatus(next.number, "in_progress");
 
   // Step 5: Run Ralph
   log("Step 5: Running ralph execute...");
   execSync("ralph execute", { cwd: ROOT, stdio: "inherit", env: cleanEnv });
+
+  // Step 6: Test and push to deploy
+  log("Step 6: Testing and pushing to remote...");
+  testAndPush();
 
   log("=== Pipeline run complete ===");
 }
 
 pipeline().catch((err) => {
   log(`Pipeline failed: ${err.message}`);
+  releaseLock();
   process.exit(1);
 });
