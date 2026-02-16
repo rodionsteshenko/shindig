@@ -5,3 +5,4 @@ test-results/
 .playwright-mcp/
 blob-report/
 .vercel
+supabase/.temp/
