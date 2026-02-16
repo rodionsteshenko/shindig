@@ -60,10 +60,11 @@
         "Verify in browser: can create key, see it in list, copy full key, revoke key"
       ],
       "priority": 3,
-      "status": "in_progress",
+      "status": "skipped",
       "notes": "Depends on US-002",
       "phase": 1,
-      "startedAt": "2026-02-15T23:29:27.265840"
+      "startedAt": "2026-02-15T23:29:27.265840",
+      "skippedAt": "2026-02-15T23:46:39.536470"
     },
     {
       "id": "US-004",
@@ -79,9 +80,10 @@
         "Typecheck passes"
       ],
       "priority": 4,
-      "status": "incomplete",
+      "status": "in_progress",
       "notes": "Depends on US-001",
-      "phase": 1
+      "phase": 1,
+      "startedAt": "2026-02-15T23:48:00.677763"
     },
     {
       "id": "US-005",
@@ -322,7 +324,7 @@
   ],
   "metadata": {
     "createdAt": "2026-02-15T23:11:14.373148",
-    "lastUpdatedAt": "2026-02-15T23:29:27.265866",
+    "lastUpdatedAt": "2026-02-15T23:48:00.677794",
     "totalStories": 18,
     "completedStories": 2,
     "currentIteration": 2
