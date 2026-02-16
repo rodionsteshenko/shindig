@@ -232,4 +232,43 @@ test.describe("Event Creation", () => {
     // Should show that the slug is already taken
     await expect(page.getByText("This URL is already taken")).toBeVisible({ timeout: 5000 });
   });
+
+  test("auto-generates a valid slug from event title when no custom slug is provided", async ({ page }) => {
+    await loginAsTestUser(page);
+
+    // Create event via the API without providing a custom slug
+    const eventTitle = "E2E Test Auto Slug Generation";
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    // Use page.request to inherit authenticated session cookies
+    const response = await page.request.post("/api/events", {
+      data: {
+        title: eventTitle,
+        description: "Testing automatic slug generation",
+        start_time: tomorrow.toISOString(),
+        timezone: "America/New_York",
+      },
+    });
+
+    expect(response.status()).toBe(201);
+
+    const data = await response.json();
+
+    // Verify the slug is present in the response
+    expect(data.slug).toBeDefined();
+    expect(typeof data.slug).toBe("string");
+
+    // Verify the slug follows the expected format:
+    // - lowercase
+    // - contains base from title (e2e-test-auto-slug-generation or similar)
+    // - ends with random suffix
+    expect(data.slug).toMatch(/^[a-z0-9-]+$/); // Only lowercase letters, numbers, hyphens
+    expect(data.slug).toContain("e2e-test-auto-slug"); // Contains base from title
+    expect(data.slug.length).toBeGreaterThan(10); // Has some length (base + suffix)
+    expect(data.slug.length).toBeLessThanOrEqual(45); // Within reasonable bounds (40 base + 1 hyphen + 4 suffix)
+
+    // Verify the event can be accessed via the generated slug
+    await page.goto(`/e/${data.slug}`);
+    await expect(page.getByRole("heading", { name: eventTitle })).toBeVisible();
+  });
 });

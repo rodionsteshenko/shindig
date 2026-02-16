@@ -6,7 +6,7 @@
       "id": "US-001",
       "phase": 1,
       "title": "Auto-generate a URL slug when creating an event",
-      "status": "incomplete",
+      "status": "in_progress",
       "priority": 1,
       "description": "As an event host, I want a URL-friendly slug to be automatically generated from my event title when I create an event, so that my event has a clean, shareable URL without extra effort.",
       "acceptanceCriteria": [
@@ -16,7 +16,8 @@
         "The slug column has a unique constraint in the database",
         "TypeScript typecheck passes with no errors (npm run build)",
         "E2E test in e2e/event-creation.spec.ts verifies that a created event has a valid slug in the response"
-      ]
+      ],
+      "startedAt": "2026-02-16T10:31:14.774261"
     },
     {
       "id": "US-002",
@@ -38,7 +39,7 @@
       "id": "US-003",
       "phase": 2,
       "title": "Allow hosts to customize the event slug",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 2,
       "description": "As an event host, I want to optionally set a custom slug for my event during creation, so that I can choose a memorable, branded URL for my event.",
       "acceptanceCriteria": [
@@ -50,7 +51,9 @@
         "TypeScript typecheck passes with no errors (npm run build)",
         "E2E test in e2e/event-creation.spec.ts verifies that a custom slug can be set and the event is accessible at that slug"
       ],
-      "startedAt": "2026-02-16T10:25:08.955968"
+      "startedAt": "2026-02-16T10:25:08.955968",
+      "actualDuration": 354.5923340320587,
+      "iterationNumber": 1
     },
     {
       "id": "US-004",
@@ -76,9 +79,9 @@
   },
   "metadata": {
     "createdAt": "2026-02-16T15:24:46.587Z",
-    "lastUpdatedAt": "2026-02-16T10:25:08.955993",
+    "lastUpdatedAt": "2026-02-16T10:31:14.774279",
     "totalStories": 4,
-    "completedStories": 0,
+    "completedStories": 1,
     "currentIteration": 1
   }
 }
