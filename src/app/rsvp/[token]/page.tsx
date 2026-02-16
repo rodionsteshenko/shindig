@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDate, formatTime } from "@/lib/utils";
 import RSVPForm from "@/components/RSVPForm";
+import EventLocation from "@/components/EventLocation";
 import type { Guest, Event } from "@/lib/types";
 
 interface Props {
@@ -40,12 +41,17 @@ export default async function RSVPPage({ params }: Props) {
       )}
 
       <h1 className="text-3xl font-bold mb-2">{event.title}</h1>
-      <p className="text-gray-600 mb-1">
-        📅 {formatDate(event.start_time)} at {formatTime(event.start_time)}
-      </p>
-      {event.location && (
-        <p className="text-gray-600 mb-6">📍 {event.location}</p>
-      )}
+      <div className="space-y-3 mb-6">
+        <div className="flex items-center gap-2 text-gray-700">
+          <span className="text-lg">📅</span>
+          <span>
+            {formatDate(event.start_time)} at {formatTime(event.start_time)}
+            {event.end_time && ` — ${formatTime(event.end_time)}`}
+          </span>
+        </div>
+
+        <EventLocation location={event.location} mapsLink={event.maps_url} />
+      </div>
 
       <hr className="my-6" />
 

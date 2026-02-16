@@ -4,6 +4,8 @@ import type { Event, Guest } from "../src/lib/types";
 
 let testEvent: Event;
 let testGuest: Guest;
+let testEventWithMapsLink: Event;
+let testGuestWithMapsLink: Guest;
 
 test.beforeAll(async () => {
   const userId = await ensureTestUser();
@@ -16,6 +18,18 @@ test.beforeAll(async () => {
   testGuest = await seedGuest(testEvent.id, {
     name: "RSVP Test Guest",
     email: "rsvp-guest@shindig.test",
+  }) as Guest;
+
+  // Create event with explicit maps_url for location link testing
+  testEventWithMapsLink = await seedEvent(userId, {
+    title: "RSVP Location Test Event",
+    description: "Test location link on RSVP page",
+    location: "456 Maps Test Ave",
+    maps_url: "https://maps.google.com/test-location",
+  }) as Event;
+  testGuestWithMapsLink = await seedGuest(testEventWithMapsLink.id, {
+    name: "Maps Test Guest",
+    email: "maps-guest@shindig.test",
   }) as Guest;
 });
 
@@ -79,6 +93,33 @@ test.describe("RSVP Page", () => {
   test("returns 404 for invalid RSVP token", async ({ page }) => {
     await page.goto("/rsvp/invalid-token-12345");
     await expect(page.getByText("404")).toBeVisible();
+  });
+
+  test("displays location with clickable maps link", async ({ page }) => {
+    await page.goto(`/rsvp/${testGuestWithMapsLink.rsvp_token}`);
+
+    // Location should be visible
+    await expect(page.getByText("456 Maps Test Ave")).toBeVisible();
+
+    // Location should be a link with the custom maps_url
+    const locationLink = page.getByRole("link", { name: "456 Maps Test Ave" });
+    await expect(locationLink).toBeVisible();
+    await expect(locationLink).toHaveAttribute("href", "https://maps.google.com/test-location");
+    await expect(locationLink).toHaveAttribute("target", "_blank");
+  });
+
+  test("displays location with auto-generated Google Maps link when no maps_url", async ({ page }) => {
+    await page.goto(`/rsvp/${testGuest.rsvp_token}`);
+
+    // Location should be visible and be a link
+    const locationLink = page.getByRole("link", { name: "RSVP Venue" });
+    await expect(locationLink).toBeVisible();
+    // Should have auto-generated Google Maps search URL
+    await expect(locationLink).toHaveAttribute(
+      "href",
+      "https://www.google.com/maps/search/?api=1&query=RSVP%20Venue"
+    );
+    await expect(locationLink).toHaveAttribute("target", "_blank");
   });
 });
 

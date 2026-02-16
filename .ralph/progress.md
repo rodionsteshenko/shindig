@@ -422,3 +422,21 @@ Run in Supabase SQL Editor to enable database tests.
 ```
 
 ---
+
+## Iteration 2 - US-001 - 2026-02-16T08:11:40.226594
+**Story**: Add location fields to event creation form
+**Status**: ✅ PASSED
+
+**Agent Output**:
+```
+[96m╔══════════════════════════════════════════════════════════════════════╗[0m
+[96m║[0m  [1mRALPH → CLAUDE[0m                                                      [96m║[0m
+[96m║[0m[90m  Model: claude-opus-4-5  │  Session: a8ea2b54                        [0m[96m║[0m
+[96m╚══════════════════════════════════════════════════════════════════════╝[0m
+
+
+[90m[08:06:49][0m 📁 [1mI'll start by exploring the existing codebase to understand ...[0m
+           [90m├──[0m [97mTodoWrite:[...
+```
+
+---

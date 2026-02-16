@@ -6,7 +6,7 @@
       "id": "US-001",
       "phase": 1,
       "title": "Add location fields to event creation form",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 1,
       "description": "As an event host, I want to enter a venue address and optional Google Maps link when creating an event so that my guests know where to go.",
       "acceptanceCriteria": [
@@ -19,7 +19,9 @@
         "TypeScript typecheck passes with no errors (npm run build)",
         "E2E test in e2e/event-creation.spec.ts verifies the location and maps link fields render and submit correctly"
       ],
-      "startedAt": "2026-02-16T08:06:45.165218"
+      "startedAt": "2026-02-16T08:06:45.165218",
+      "actualDuration": 295.0618631839752,
+      "iterationNumber": 2
     },
     {
       "id": "US-002",
@@ -46,7 +48,7 @@
       "id": "US-003",
       "phase": 1,
       "title": "Include location in RSVP and guest-facing views",
-      "status": "incomplete",
+      "status": "in_progress",
       "priority": 2,
       "description": "As a guest viewing my RSVP page, I want to see the event location so that I have all the details I need in one place.",
       "acceptanceCriteria": [
@@ -56,15 +58,16 @@
         "The shared component accepts location (string | null) and mapsLink (string | null) props",
         "TypeScript typecheck passes with no errors (npm run build)",
         "E2E test in e2e/rsvp.spec.ts verifies location appears on the RSVP page for a seeded event with location data"
-      ]
+      ],
+      "startedAt": "2026-02-16T08:11:48.192645"
     }
   ],
   "metadata": {
     "createdAt": "2026-02-16T13:03:09.496Z",
-    "lastUpdatedAt": "2026-02-16T08:06:45.165272",
+    "lastUpdatedAt": "2026-02-16T08:11:48.192668",
     "totalStories": 3,
-    "completedStories": 1,
-    "currentIteration": 1
+    "completedStories": 2,
+    "currentIteration": 2
   },
   "phases": {
     "1": {
