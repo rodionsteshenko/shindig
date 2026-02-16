@@ -6,7 +6,7 @@
       "id": "US-001",
       "phase": 1,
       "title": "Auto-generate a URL slug when creating an event",
-      "status": "in_progress",
+      "status": "complete",
       "priority": 1,
       "description": "As an event host, I want a URL-friendly slug to be automatically generated from my event title when I create an event, so that my event has a clean, shareable URL without extra effort.",
       "acceptanceCriteria": [
@@ -17,13 +17,15 @@
         "TypeScript typecheck passes with no errors (npm run build)",
         "E2E test in e2e/event-creation.spec.ts verifies that a created event has a valid slug in the response"
       ],
-      "startedAt": "2026-02-16T10:31:14.774261"
+      "startedAt": "2026-02-16T10:31:14.774261",
+      "actualDuration": 277.4152340888977,
+      "iterationNumber": 2
     },
     {
       "id": "US-002",
       "phase": 1,
       "title": "Resolve public event page by slug",
-      "status": "incomplete",
+      "status": "in_progress",
       "priority": 1,
       "description": "As a guest, I want to visit shindig.app/e/{slug} and see the correct event page, so that I can view event details from a clean, memorable URL.",
       "acceptanceCriteria": [
@@ -33,7 +35,8 @@
         "Existing links and references to event pages throughout the app use the slug-based URL",
         "TypeScript typecheck passes with no errors (npm run build)",
         "E2E test in e2e/public-event.spec.ts verifies navigating to /e/{slug} renders the correct event"
-      ]
+      ],
+      "startedAt": "2026-02-16T10:36:01.511006"
     },
     {
       "id": "US-003",
@@ -79,9 +82,9 @@
   },
   "metadata": {
     "createdAt": "2026-02-16T15:24:46.587Z",
-    "lastUpdatedAt": "2026-02-16T10:31:14.774279",
+    "lastUpdatedAt": "2026-02-16T10:36:01.511032",
     "totalStories": 4,
-    "completedStories": 1,
-    "currentIteration": 1
+    "completedStories": 2,
+    "currentIteration": 2
   }
 }
