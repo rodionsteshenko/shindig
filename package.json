@@ -11,7 +11,10 @@
     "test:ui": "npx playwright test --ui",
     "test:headed": "npx playwright test --headed",
     "db:check": "npx tsx --env-file=.env.local scripts/apply-migration.ts",
-    "db:seed-demo": "npx tsx --env-file=.env.local scripts/seed-demo.ts"
+    "db:seed-demo": "npx tsx --env-file=.env.local scripts/seed-demo.ts",
+    "judge": "npx tsx --env-file=.env.local scripts/judge-features.ts",
+    "generate-prd": "npx tsx --env-file=.env.local scripts/generate-prd.ts",
+    "trigger-ralph": "npx tsx --env-file=.env.local scripts/trigger-ralph.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

@@ -210,9 +210,10 @@
         "Verify in browser: clicking tabs filters the displayed features"
       ],
       "priority": 11,
-      "status": "incomplete",
+      "status": "in_progress",
       "notes": "Depends on US-010",
-      "phase": 1
+      "phase": 1,
+      "startedAt": "2026-02-16T00:35:41.758345"
     },
     {
       "id": "US-012",
@@ -337,7 +338,7 @@
   ],
   "metadata": {
     "createdAt": "2026-02-15T23:11:14.373148",
-    "lastUpdatedAt": "2026-02-16T00:35:17.658108",
+    "lastUpdatedAt": "2026-02-16T00:35:41.758373",
     "totalStories": 18,
     "completedStories": 9,
     "currentIteration": 2
