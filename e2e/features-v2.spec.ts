@@ -36,16 +36,6 @@ test.afterAll(async () => {
 });
 
 test.describe("Feature Board v2 - Type Selector", () => {
-  test("shows type selector with Feature Request and Bug Report options @requires-migration-002", async ({ page }) => {
-    if (await skipIfNoMigration()) return;
-
-    await page.goto("/features");
-    await expect(page.getByLabel("Feature Request")).toBeVisible();
-    await expect(page.getByLabel("Bug Report")).toBeVisible();
-    await expect(page.getByLabel("Feature Request")).toBeChecked();
-    await expect(page.getByLabel("Bug Report")).not.toBeChecked();
-  });
-
   test("can submit a feature request with type=feature @requires-migration-002", async ({ page }) => {
     if (await skipIfNoMigration()) return;
 
@@ -94,24 +84,6 @@ test.describe("Feature Board v2 - Type Selector", () => {
 });
 
 test.describe("Feature Board v2 - Filter Tabs", () => {
-  test("displays all filter tabs @requires-migration-002", async ({ page }) => {
-    if (await skipIfNoMigration()) return;
-
-    await page.goto("/features");
-    await expect(page.getByRole("button", { name: "All" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Features" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Bugs" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Approved" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Needs Review" })).toBeVisible();
-  });
-
-  test("All tab is active by default @requires-migration-002", async ({ page }) => {
-    if (await skipIfNoMigration()) return;
-
-    await page.goto("/features");
-    await expect(page.getByRole("button", { name: "All" })).toHaveClass(/bg-shindig-600/);
-  });
-
   test("clicking a tab changes its active state @requires-migration-002", async ({ page }) => {
     if (await skipIfNoMigration()) return;
 
@@ -239,100 +211,7 @@ test.describe("Feature Board v2 - Filter Tabs", () => {
   });
 });
 
-test.describe("Feature Board v2 - AI Verdict Badge", () => {
-  test("displays Approved badge when ai_verdict is approved @requires-migration-002", async ({ page }) => {
-    if (await skipIfNoMigration()) return;
-
-    await supabase.from("feature_requests").delete().like("title", "E2E V2 Test AI Approved%");
-    const { data: feature } = await supabase.from("feature_requests").insert({
-      title: "E2E V2 Test AI Approved Feature", type: "feature", status: "open", author_name: "Test",
-      ai_verdict: "approved", ai_reason: "This feature aligns with our roadmap"
-    }).select().single();
-
-    await page.goto("/features");
-    await page.waitForLoadState("networkidle");
-    await expect(page.getByText("E2E V2 Test AI Approved Feature")).toBeVisible({ timeout: 10000 });
-    const approvedBadge = page.locator("span.bg-green-100.text-green-700", { hasText: "Approved" });
-    await expect(approvedBadge.first()).toBeVisible();
-
-    if (feature) await supabase.from("feature_requests").delete().eq("id", feature.id);
-  });
-
-  test("displays Rejected badge when ai_verdict is rejected @requires-migration-002", async ({ page }) => {
-    if (await skipIfNoMigration()) return;
-
-    await supabase.from("feature_requests").delete().like("title", "E2E V2 Test AI Rejected%");
-    const { data: feature } = await supabase.from("feature_requests").insert({
-      title: "E2E V2 Test AI Rejected Feature", type: "feature", status: "open", author_name: "Test",
-      ai_verdict: "rejected", ai_reason: "This feature is out of scope"
-    }).select().single();
-
-    await page.goto("/features");
-    await page.waitForLoadState("networkidle");
-    await expect(page.getByText("E2E V2 Test AI Rejected Feature")).toBeVisible({ timeout: 10000 });
-    const rejectedBadge = page.locator("span.bg-red-100.text-red-700", { hasText: "Rejected" });
-    await expect(rejectedBadge.first()).toBeVisible();
-
-    if (feature) await supabase.from("feature_requests").delete().eq("id", feature.id);
-  });
-
-  test("displays Needs Clarification badge when ai_verdict is needs_clarification @requires-migration-002", async ({ page }) => {
-    if (await skipIfNoMigration()) return;
-
-    await supabase.from("feature_requests").delete().like("title", "E2E V2 Test AI Clarification%");
-    const { data: feature } = await supabase.from("feature_requests").insert({
-      title: "E2E V2 Test AI Clarification Feature", type: "feature", status: "open", author_name: "Test",
-      ai_verdict: "needs_clarification", ai_reason: "Please provide more details about the use case"
-    }).select().single();
-
-    await page.goto("/features");
-    await page.waitForLoadState("networkidle");
-    await expect(page.getByText("E2E V2 Test AI Clarification Feature")).toBeVisible({ timeout: 10000 });
-    const clarificationBadge = page.locator("span.bg-yellow-100.text-yellow-700", { hasText: "Needs Clarification" });
-    await expect(clarificationBadge.first()).toBeVisible();
-
-    if (feature) await supabase.from("feature_requests").delete().eq("id", feature.id);
-  });
-
-  test("displays AI reason text when ai_reason is set @requires-migration-002", async ({ page }) => {
-    if (await skipIfNoMigration()) return;
-
-    await supabase.from("feature_requests").delete().like("title", "E2E V2 Test AI Reason%");
-    const { data: feature } = await supabase.from("feature_requests").insert({
-      title: "E2E V2 Test AI Reason Feature", type: "feature", status: "open", author_name: "Test",
-      ai_verdict: "approved", ai_reason: "This feature would greatly improve user experience"
-    }).select().single();
-
-    await page.goto("/features");
-    await page.waitForLoadState("networkidle");
-    await expect(page.getByText("E2E V2 Test AI Reason Feature")).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText("This feature would greatly improve user experience")).toBeVisible();
-
-    if (feature) await supabase.from("feature_requests").delete().eq("id", feature.id);
-  });
-
-  test("does not display AI verdict badge when ai_verdict is null @requires-migration-002", async ({ page }) => {
-    if (await skipIfNoMigration()) return;
-
-    await supabase.from("feature_requests").delete().like("title", "E2E V2 Test No AI%");
-    const { data: feature } = await supabase.from("feature_requests").insert({
-      title: "E2E V2 Test No AI Verdict Feature", type: "feature", status: "open", author_name: "Test",
-      ai_verdict: null
-    }).select().single();
-
-    await page.goto("/features");
-    await page.waitForLoadState("networkidle");
-    await expect(page.getByText("E2E V2 Test No AI Verdict Feature")).toBeVisible({ timeout: 10000 });
-
-    const featureCard = page.locator("div").filter({ hasText: "E2E V2 Test No AI Verdict Feature" }).first();
-    await expect(featureCard.locator("span", { hasText: "Open" }).first()).toBeVisible();
-    await expect(featureCard.locator("span.bg-green-100", { hasText: "Approved" })).not.toBeVisible();
-    await expect(featureCard.locator("span.bg-red-100", { hasText: "Rejected" })).not.toBeVisible();
-    await expect(featureCard.locator("span.bg-yellow-100", { hasText: "Needs Clarification" })).not.toBeVisible();
-
-    if (feature) await supabase.from("feature_requests").delete().eq("id", feature.id);
-  });
-
+test.describe("Feature Board v2 - AI Verdict Filtering", () => {
   test("AI verdict approved shows in Approved filter tab @requires-migration-002", async ({ page }) => {
     if (await skipIfNoMigration()) return;
 

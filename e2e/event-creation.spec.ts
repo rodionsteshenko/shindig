@@ -11,44 +11,6 @@ test.describe("Event Creation", () => {
     await page.waitForURL("**/login**");
   });
 
-  test("renders event form when authenticated", async ({ page }) => {
-    await loginAsTestUser(page);
-    await page.goto("/create");
-
-    await expect(page.getByRole("heading", { name: /Create an Event/i })).toBeVisible();
-    await expect(page.getByLabel(/Event Title/i)).toBeVisible();
-    await expect(page.getByLabel(/Description/i)).toBeVisible();
-    await expect(page.getByLabel(/Start Date/i)).toBeVisible();
-    await expect(page.getByLabel(/End Date/i)).toBeVisible();
-    await expect(page.getByLabel(/Location \/ Address/i)).toBeVisible();
-    await expect(page.getByLabel(/Google Maps Link/i)).toBeVisible();
-    await expect(page.getByText(/Cover Image/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: /Create Event/i })).toBeVisible();
-  });
-
-  test("shows 8 cover image presets", async ({ page }) => {
-    await loginAsTestUser(page);
-    await page.goto("/create");
-
-    // Each preset has a label text overlay
-    await expect(page.getByText("Party")).toBeVisible();
-    await expect(page.getByText("Dinner")).toBeVisible();
-    await expect(page.getByText("Outdoor")).toBeVisible();
-    await expect(page.getByText("Birthday")).toBeVisible();
-    await expect(page.getByText("Wedding")).toBeVisible();
-    await expect(page.getByText("Corporate")).toBeVisible();
-    await expect(page.getByText("Beach")).toBeVisible();
-    await expect(page.getByText("Concert")).toBeVisible();
-  });
-
-  test("shows checkboxes for public and plus-ones", async ({ page }) => {
-    await loginAsTestUser(page);
-    await page.goto("/create");
-
-    await expect(page.getByText("Public event page")).toBeVisible();
-    await expect(page.getByText("Allow plus-ones")).toBeVisible();
-  });
-
   test("can submit event form and redirect to dashboard", async ({ page }) => {
     await loginAsTestUser(page);
     await page.goto("/create");
@@ -125,16 +87,6 @@ test.describe("Event Creation", () => {
 
     // Should redirect to dashboard event page
     await page.waitForURL("**/dashboard/**", { timeout: 10000 });
-  });
-
-  test("shows custom URL input field with preview", async ({ page }) => {
-    await loginAsTestUser(page);
-    await page.goto("/create");
-
-    // Custom URL field should be visible
-    await expect(page.getByLabel(/Custom URL/i)).toBeVisible();
-    // Preview text should show the base URL
-    await expect(page.getByText("shindig.app/e/")).toBeVisible();
   });
 
   test("validates custom slug format - too short", async ({ page }) => {

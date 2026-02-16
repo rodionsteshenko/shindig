@@ -12,7 +12,6 @@ test.beforeAll(async () => {
   await supabase.from("events").delete().eq("slug", "demo");
 
   const userId = await ensureTestUser();
-  // Seed a demo event with slug "demo" — mirroring the seed-demo script
   await seedEvent(userId, {
     title: "Summer Rooftop Party",
     slug: "demo",
@@ -27,33 +26,16 @@ test.afterAll(async () => {
   await cleanupTestData();
 });
 
-test.describe("Demo Event Page", () => {
-  test("clicking demo link from landing page navigates to /e/demo", async ({
-    page,
-  }) => {
+test.describe("Demo Event", () => {
+  test("landing page demo link takes user to the full demo event", async ({ page }) => {
     await page.goto("/");
     await page.getByRole("link", { name: /See a Demo/i }).click();
+
     await expect(page).toHaveURL(/\/e\/demo/);
-    await expect(
-      page.getByRole("heading", { name: /Summer Rooftop Party/i })
-    ).toBeVisible();
-  });
-
-  test("renders demo event details directly", async ({ page }) => {
-    await page.goto("/e/demo");
-    await expect(
-      page.getByRole("heading", { name: /Summer Rooftop Party/i })
-    ).toBeVisible();
+    // Verify the demo event renders with all its content
+    await expect(page.getByRole("heading", { name: /Summer Rooftop Party/i })).toBeVisible();
     await expect(page.getByText(/great food, music/i)).toBeVisible();
-  });
-
-  test("shows location", async ({ page }) => {
-    await page.goto("/e/demo");
     await expect(page.getByText(/Pier 17/i)).toBeVisible();
-  });
-
-  test("shows gift message", async ({ page }) => {
-    await page.goto("/e/demo");
     await expect(page.getByText(/No gifts necessary/i)).toBeVisible();
   });
 });

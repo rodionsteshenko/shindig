@@ -1,38 +1,42 @@
 import { test, expect } from "@playwright/test";
 import { loginAsTestUser } from "./helpers";
 
-test.describe("Header / Navigation", () => {
-  test("shows logo linking to home", async ({ page }) => {
+test.describe("Header Navigation", () => {
+  test("logged-out user can navigate to login via Sign In", async ({ page }) => {
     await page.goto("/");
-    const logo = page.locator("header").getByRole("link", { name: /Shindig/i });
-    await expect(logo).toBeVisible();
-    await expect(logo).toHaveAttribute("href", "/");
+    await page.locator("header").getByRole("link", { name: /Sign In/i }).click();
+    await expect(page).toHaveURL(/\/login/);
   });
 
-  test("shows Features link", async ({ page }) => {
+  test("logged-out user can navigate to features from header", async ({ page }) => {
     await page.goto("/");
-    const featuresLink = page.locator("header").getByRole("link", { name: /Features/i });
-    await expect(featuresLink).toBeVisible();
-    await expect(featuresLink).toHaveAttribute("href", "/features");
+    await page.locator("header").getByRole("link", { name: /Features/i }).click();
+    await expect(page).toHaveURL(/\/features/);
   });
 
-  test("shows Sign In button when logged out", async ({ page }) => {
-    await page.goto("/");
-    const signIn = page.locator("header").getByRole("link", { name: /Sign In/i });
-    await expect(signIn).toBeVisible();
-    await expect(signIn).toHaveAttribute("href", "/login");
-  });
-
-  test("shows Dashboard, Create Event, and Sign Out when logged in", async ({ page }) => {
+  test("logged-in user sees Dashboard, Create Event, and Sign Out instead of Sign In", async ({ page }) => {
     await loginAsTestUser(page);
     await page.goto("/");
 
     const header = page.locator("header");
+    // Auth links should be present
     await expect(header.getByRole("link", { name: /Dashboard/i })).toBeVisible();
     await expect(header.getByRole("link", { name: /Create Event/i })).toBeVisible();
     await expect(header.getByRole("button", { name: /Sign Out/i })).toBeVisible();
-
-    // Sign In should NOT be visible when logged in
+    // Sign In should be gone
     await expect(header.getByRole("link", { name: /Sign In/i })).not.toBeVisible();
+  });
+
+  test("logged-in user can navigate to dashboard from header", async ({ page }) => {
+    await loginAsTestUser(page);
+    await page.goto("/");
+    await page.locator("header").getByRole("link", { name: /Dashboard/i }).click();
+    await expect(page).toHaveURL(/\/dashboard/);
+  });
+
+  test("logo navigates back to home from any page", async ({ page }) => {
+    await page.goto("/features");
+    await page.locator("header").getByRole("link", { name: /Shindig/i }).click();
+    await expect(page).toHaveURL(/\/$/);
   });
 });

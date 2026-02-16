@@ -66,8 +66,9 @@ test.describe("Event Creation Scenarios", () => {
     await page.goto(`/e/${eventId}`);
     await expect(page.getByRole("heading", { name: "E2E Test Timed Event" })).toBeVisible();
 
-    // Should show the end time with a dash separator
-    await expect(page.getByText("—")).toBeVisible();
+    // Should show the end time (the date section includes both start and end times)
+    const dateSection = page.locator("div").filter({ hasText: /at .+ — .+/ }).first();
+    await expect(dateSection).toBeVisible();
   });
 
   test("create event with gift registry and message", async ({ page }) => {

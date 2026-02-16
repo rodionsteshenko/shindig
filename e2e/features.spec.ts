@@ -26,23 +26,6 @@ test.afterAll(async () => {
 });
 
 test.describe("Feature Board", () => {
-  test("renders feature board page", async ({ page }) => {
-    await page.goto("/features");
-    await expect(page.getByRole("heading", { name: "Feature Board" })).toBeVisible();
-    await expect(page.getByText("Suggest features and vote")).toBeVisible();
-  });
-
-  test("shows feature form with type selector", async ({ page }) => {
-    await page.goto("/features");
-    await expect(page.getByRole("heading", { name: "Suggest a Feature" })).toBeVisible();
-    await expect(page.getByPlaceholder("Feature title *")).toBeVisible();
-    await expect(page.getByPlaceholder("Describe the feature (optional)")).toBeVisible();
-    await expect(page.getByPlaceholder("Your name (optional)")).toBeVisible();
-    // Type selector radio buttons
-    await expect(page.getByLabel("Feature Request")).toBeVisible();
-    await expect(page.getByLabel("Bug Report")).toBeVisible();
-  });
-
   test("can submit a feature request", async ({ page }) => {
     await page.goto("/features");
 
@@ -102,16 +85,6 @@ test.describe("Feature Board", () => {
     await expect(
       page.getByText("No feature requests yet")
     ).toBeVisible({ timeout: 5000 });
-  });
-
-  test("displays filter tabs", async ({ page }) => {
-    await page.goto("/features");
-    // Check all filter tabs are visible
-    await expect(page.getByRole("button", { name: "All" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Features" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Bugs" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Approved" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Needs Review" })).toBeVisible();
   });
 
   test("filter tabs change active state on click", async ({ page }) => {

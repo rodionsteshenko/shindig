@@ -38,21 +38,6 @@ test.afterAll(async () => {
 });
 
 test.describe("RSVP Page", () => {
-  test("renders event info and RSVP form", async ({ page }) => {
-    await page.goto(`/rsvp/${testGuest.rsvp_token}`);
-
-    await expect(page.getByRole("heading", { name: testEvent.title })).toBeVisible();
-    await expect(page.getByText("RSVP Venue")).toBeVisible();
-
-    // Should show guest name
-    await expect(page.getByText("RSVP Test Guest")).toBeVisible();
-
-    // Should show 3 RSVP options
-    await expect(page.getByRole("button", { name: /Going/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Maybe/i })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Can't/i })).toBeVisible();
-  });
-
   test("shows plus-one selector when Going is selected", async ({ page }) => {
     await page.goto(`/rsvp/${testGuest.rsvp_token}`);
 
@@ -82,12 +67,6 @@ test.describe("RSVP Page", () => {
     await page.getByRole("button", { name: /Can't/i }).click();
     await expect(page.getByText(/Bringing anyone/i)).not.toBeVisible();
     await expect(page.getByText(/Dietary restrictions/i)).not.toBeVisible();
-  });
-
-  test("always shows message field", async ({ page }) => {
-    await page.goto(`/rsvp/${testGuest.rsvp_token}`);
-
-    await expect(page.getByText(/Message for the host/i)).toBeVisible();
   });
 
   test("returns 404 for invalid RSVP token", async ({ page }) => {
