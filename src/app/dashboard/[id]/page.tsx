@@ -6,7 +6,8 @@ import GuestList from "@/components/GuestList";
 import GuestForm from "@/components/GuestForm";
 import ExportCSVButton from "@/components/ExportCSVButton";
 import ActionButton from "@/components/ActionButton";
-import type { Event, Guest } from "@/lib/types";
+import CustomFieldResults from "@/components/CustomFieldResults";
+import type { Event, Guest, CustomField, CustomFieldResponse } from "@/lib/types";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -38,8 +39,27 @@ export default async function EventDashboardPage({ params }: Props) {
     .eq("event_id", id)
     .order("created_at", { ascending: true });
 
+  // Fetch custom fields for this event (ordered by sort_order)
+  const { data: customFields } = await supabase
+    .from("event_custom_fields")
+    .select("*")
+    .eq("event_id", id)
+    .order("sort_order", { ascending: true });
+
+  // Fetch all custom field responses for this event's fields
+  const fieldIds = (customFields ?? []).map((f) => f.id);
+  let customResponses: CustomFieldResponse[] = [];
+  if (fieldIds.length > 0) {
+    const { data: responses } = await supabase
+      .from("custom_field_responses")
+      .select("*")
+      .in("field_id", fieldIds);
+    customResponses = (responses ?? []) as CustomFieldResponse[];
+  }
+
   const e = event as Event;
   const guestList = (guests ?? []) as Guest[];
+  const fieldList = (customFields ?? []) as CustomField[];
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-10">
@@ -92,6 +112,13 @@ export default async function EventDashboardPage({ params }: Props) {
           <GuestList guests={guestList} eventId={e.id} />
         </div>
       </section>
+
+      {/* Custom Field Results */}
+      <CustomFieldResults
+        fields={fieldList}
+        responses={customResponses}
+        guests={guestList}
+      />
 
       {/* Actions */}
       <section>
