@@ -3,24 +3,105 @@
  *
  * Queries approved features that haven't been processed yet, asks Claude
  * to generate a Ralph-compatible PRD JSON for each, stores it in the
- * prd_json column, and sets implementation_status to 'queued'.
+ * prd_json column, sets implementation_status to 'queued', and creates
+ * a GitHub Issue to track implementation.
  *
  * Run: npx tsx --env-file=.env.local scripts/generate-prd.ts
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { execSync } from "child_process";
+import { execSync, spawnSync } from "child_process";
+import { writeFileSync, unlinkSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+/** Map FEATURES.md version strings to GitHub milestone titles */
+function versionToMilestone(description: string): string | null {
+  if (/v1\.0/i.test(description)) return "v1.0 — MVP";
+  if (/v1\.5/i.test(description)) return "v1.5 — Post-Launch Quick Wins";
+  if (/v2\.0/i.test(description)) return "v2.0 — Growth Features";
+  if (/v3\.0/i.test(description)) return "v3.0 — Premium / Monetization";
+  return null;
+}
+
+/** Create a GitHub Issue and return the issue number */
+function createGitHubIssue(
+  title: string,
+  body: string,
+  labels: string[],
+  milestone?: string | null
+): number {
+  // Write body to temp file to avoid shell escaping issues
+  const bodyFile = join(tmpdir(), `shindig-issue-${Date.now()}.md`);
+  writeFileSync(bodyFile, body);
+
+  const args = ["issue", "create", "--title", title, "--body-file", bodyFile];
+  for (const l of labels) {
+    args.push("--label", l);
+  }
+  if (milestone) {
+    args.push("--milestone", milestone);
+  }
+
+  try {
+    const result = spawnSync("gh", args, {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    if (result.status !== 0) {
+      console.error(`  Failed to create GitHub issue: ${result.stderr}`);
+      return 0;
+    }
+
+    // gh outputs the issue URL, e.g. https://github.com/owner/repo/issues/42
+    const match = result.stdout.trim().match(/\/issues\/(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+  } catch (err) {
+    console.error(`  Failed to create GitHub issue: ${err instanceof Error ? err.message : String(err)}`);
+    return 0;
+  } finally {
+    try { unlinkSync(bodyFile); } catch { /* ignore */ }
+  }
+}
+
+/** Build the issue body with PRD in a details block */
+function buildIssueBody(
+  feature: {
+    type: string;
+    vote_count: number;
+    author_name: string;
+    ai_reason: string | null;
+    severity?: string | null;
+  },
+  prd: Record<string, unknown>
+): string {
+  const severity = feature.severity ? ` | **Severity:** ${feature.severity}` : "";
+  const verdict = feature.ai_reason ? `\n**AI Verdict:** approved — "${feature.ai_reason}"` : "";
+
+  return `**Type:** ${feature.type} | **Votes:** ${feature.vote_count} | **Author:** ${feature.author_name}${severity}${verdict}
+
+## PRD
+
+<details><summary>Ralph PRD JSON</summary>
+
+\`\`\`json
+${JSON.stringify(prd, null, 2)}
+\`\`\`
+
+</details>`;
+}
+
 async function generatePrd() {
   // 1. Query approved features that haven't been processed
   const { data: features, error } = await supabase
     .from("feature_requests")
-    .select("id, title, description, type, author_name, vote_count, ai_reason")
+    .select("id, title, description, type, author_name, vote_count, ai_reason, severity")
     .eq("status", "approved")
     .eq("implementation_status", "none");
 
@@ -114,11 +195,32 @@ Guidelines:
       continue;
     }
 
-    // 3. Store PRD and update status
+    // 3. Create GitHub Issue
+    const typeLabel = feature.type === "bug" ? "type:bug" : "type:feature";
+    const sourceLabel = feature.author_name === "Shindig Roadmap" ? "source:roadmap" : "source:user";
+    const labels = ["pipeline:queued", typeLabel, sourceLabel];
+
+    if (feature.severity) {
+      labels.push(`priority:${feature.severity}`);
+    }
+
+    const milestone = versionToMilestone(feature.description || "");
+    const issueTitle = `[${feature.type === "bug" ? "Bug" : "Feature"}] ${feature.title}`;
+    const issueBody = buildIssueBody(feature, prd);
+
+    const issueNumber = createGitHubIssue(issueTitle, issueBody, labels, milestone);
+
+    if (issueNumber > 0) {
+      console.log(`  GitHub Issue #${issueNumber} created`);
+    }
+
+    // 4. Store PRD and update status in Supabase
+    const prdWithIssue = { ...prd, githubIssueNumber: issueNumber || undefined };
+
     const { error: updateError } = await supabase
       .from("feature_requests")
       .update({
-        prd_json: prd,
+        prd_json: prdWithIssue,
         implementation_status: "queued",
       })
       .eq("id", feature.id);

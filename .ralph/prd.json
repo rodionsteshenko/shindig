@@ -1,79 +1,176 @@
 {
   "project": "Shindig",
-  "description": "Implement clean, human-readable event URLs at /e/{slug} so events are easily shareable and brandable. This covers slug generation during event creation, routing to the public event page via slug, and handling invalid or duplicate slugs gracefully.",
+  "description": "Implement custom event fields so hosts can collect additional information from guests beyond the built-in fields. Three field types: text questions (e.g. 'Dietary restrictions?', 'T-shirt size?'), polls (single or multi-select, e.g. 'Which date works?'), and signup lists (e.g. 'Sign up to bring: Salad, Drinks, Dessert' with claim limits). Hosts configure fields when creating/editing an event; guests fill them out during RSVP. Poll results and signup status are visible on the public event page; text responses are private to the host.",
   "userStories": [
     {
       "id": "US-001",
-      "phase": 1,
-      "title": "Auto-generate a URL slug when creating an event",
-      "status": "complete",
-      "priority": 1,
-      "description": "As an event host, I want a URL-friendly slug to be automatically generated from my event title when I create an event, so that my event has a clean, shareable URL without extra effort.",
+      "title": "Database schema for custom event fields",
+      "description": "As a developer, I want database tables for custom field definitions and guest responses, so that the system can store and query custom field data with proper referential integrity.",
       "acceptanceCriteria": [
-        "When an event is created via the API route in src/app/api/events/, a slug is generated from the event title (lowercased, spaces replaced with hyphens, special characters stripped)",
-        "If a generated slug already exists in the database, a short numeric or random suffix is appended to ensure uniqueness",
-        "The slug is stored in the events table and returned in the API response",
-        "The slug column has a unique constraint in the database",
-        "TypeScript typecheck passes with no errors (npm run build)",
-        "E2E test in e2e/event-creation.spec.ts verifies that a created event has a valid slug in the response"
+        "A new migration file exists at supabase/migrations/20260217000000_custom_event_fields.sql",
+        "Table event_custom_fields is created with columns: id (uuid PK default gen_random_uuid()), event_id (uuid FK references events on delete cascade), type (text NOT NULL check in ('text','poll','signup')), label (text NOT NULL), description (text), required (boolean default false), sort_order (integer default 0), options (jsonb), config (jsonb default '{}'), created_at (timestamptz default now())",
+        "Table custom_field_responses is created with columns: id (uuid PK default gen_random_uuid()), field_id (uuid FK references event_custom_fields on delete cascade), guest_id (uuid FK references guests on delete cascade), value (text), created_at (timestamptz default now()), updated_at (timestamptz default now())",
+        "A unique constraint exists on (field_id, guest_id) in custom_field_responses",
+        "Indexes exist on event_custom_fields(event_id) and custom_field_responses(field_id) and custom_field_responses(guest_id)",
+        "RLS is enabled on both tables: hosts can manage their own event's fields, anyone can read fields for public events, response writes go through admin/service role client",
+        "Migration SQL is syntactically valid and can be applied to the Supabase instance"
       ],
-      "startedAt": "2026-02-16T10:31:14.774261",
-      "actualDuration": 277.4152340888977,
-      "iterationNumber": 2
+      "priority": 1,
+      "status": "in_progress",
+      "phase": 1,
+      "startedAt": "2026-02-16T20:51:38.220825"
     },
     {
       "id": "US-002",
-      "phase": 1,
-      "title": "Resolve public event page by slug",
-      "status": "complete",
-      "priority": 1,
-      "description": "As a guest, I want to visit shindig.app/e/{slug} and see the correct event page, so that I can view event details from a clean, memorable URL.",
+      "title": "TypeScript types and validation for custom fields",
+      "description": "As a developer, I want TypeScript types and validation functions for custom fields and responses, so that field data is type-safe and validated before database writes.",
       "acceptanceCriteria": [
-        "The dynamic route at src/app/e/[slug]/page.tsx fetches the event by slug from Supabase instead of by ID",
-        "If the slug matches an existing event, the full public event page renders with all event details (title, date, description, cover image, location, gifts, calendar link)",
-        "If the slug does not match any event, a 404 page or 'Event not found' message is displayed",
-        "Existing links and references to event pages throughout the app use the slug-based URL",
-        "TypeScript typecheck passes with no errors (npm run build)",
-        "E2E test in e2e/public-event.spec.ts verifies navigating to /e/{slug} renders the correct event"
+        "src/lib/types.ts exports CustomFieldType ('text' | 'poll' | 'signup'), CustomField interface, and CustomFieldResponse interface matching the database schema",
+        "CustomField interface includes: id, event_id, type, label, description (string | null), required, sort_order, options (string[] | null), config ({ multi_select?: boolean; max_claims_per_item?: number }), created_at",
+        "CustomFieldResponse interface includes: id, field_id, guest_id, value (string | null), created_at, updated_at",
+        "src/lib/validation.ts exports validateCustomFields(fields) that enforces: max 10 fields per event, label required (1-200 chars), poll/signup fields need 2-20 options, no duplicate options within a field, type must be 'text', 'poll', or 'signup'",
+        "src/lib/validation.ts exports validateCustomResponses(responses, fields) that enforces: required fields must have a non-empty value, text values max 1000 chars, poll/signup values must be valid options from the field definition",
+        "Both validation functions return { valid: boolean; errors: string[] }",
+        "TypeScript typecheck passes with no errors (npm run build)"
       ],
-      "startedAt": "2026-02-16T10:36:01.511006",
-      "actualDuration": 220.60600304603577,
-      "iterationNumber": 3
+      "priority": 1,
+      "status": "incomplete",
+      "phase": 1
     },
     {
       "id": "US-003",
-      "phase": 2,
-      "title": "Allow hosts to customize the event slug",
-      "status": "complete",
-      "priority": 2,
-      "description": "As an event host, I want to optionally set a custom slug for my event during creation, so that I can choose a memorable, branded URL for my event.",
+      "title": "Event creation and edit API accepts custom fields",
+      "description": "As an event host, I want to save custom field definitions when creating or editing an event, so that my fields are persisted and available for guest responses.",
       "acceptanceCriteria": [
-        "The event creation form in src/app/create/page.tsx includes an optional 'Custom URL' input field that shows a preview like shindig.app/e/{slug}",
-        "If the host provides a custom slug, it is validated (lowercase, alphanumeric and hyphens only, 3-60 characters) and checked for uniqueness via an API call",
-        "If the custom slug is already taken, the user sees an inline error message before submitting",
-        "If no custom slug is provided, the auto-generated slug from US-001 is used",
-        "The API route in src/app/api/events/ accepts an optional slug field and validates it server-side",
-        "TypeScript typecheck passes with no errors (npm run build)",
-        "E2E test in e2e/event-creation.spec.ts verifies that a custom slug can be set and the event is accessible at that slug"
+        "POST /api/events accepts an optional custom_fields array in the request body, each with type, label, description, required, sort_order, options, and config",
+        "After event creation, custom fields are inserted into event_custom_fields with the new event's ID",
+        "PUT /api/events/manage/[id] accepts an optional custom_fields array in the request body",
+        "On update: fields with an existing id are updated, fields without an id are inserted as new, fields that were previously saved but are missing from the array are deleted (cascade deletes their responses)",
+        "Custom fields are validated using validateCustomFields before saving \u2014 invalid fields return 400 with error details",
+        "GET /api/events/manage/[id] returns the event's custom fields in the response",
+        "TypeScript typecheck passes with no errors (npm run build)"
       ],
-      "startedAt": "2026-02-16T10:25:08.955968",
-      "actualDuration": 354.5923340320587,
-      "iterationNumber": 1
+      "priority": 1,
+      "status": "incomplete",
+      "phase": 1
     },
     {
       "id": "US-004",
-      "phase": 2,
-      "title": "Redirect old or alternate event URLs to the canonical slug URL",
-      "status": "in_progress",
-      "priority": 3,
-      "description": "As a guest, I want to be redirected to the correct event page if I visit an outdated or ID-based event URL, so that I always land on the right page and bookmarks stay valid.",
+      "title": "RSVP API returns and accepts custom field data",
+      "description": "As a guest, I want to see and respond to custom fields when RSVPing, so that I can provide the host with the information they need.",
       "acceptanceCriteria": [
-        "If an event is accessed via its database ID at /e/{id}, the server redirects (HTTP 301) to /e/{slug}",
-        "The redirect is handled in src/app/e/[slug]/page.tsx by detecting whether the parameter is a UUID vs a slug",
-        "TypeScript typecheck passes with no errors (npm run build)",
-        "E2E test in e2e/public-event.spec.ts verifies that visiting /e/{event-id} redirects to /e/{slug}"
+        "GET /api/rsvp/[token] returns custom_fields (event_custom_fields ordered by sort_order) and custom_responses (this guest's responses) in the response",
+        "For signup-type fields, GET also returns signup_claims: an object keyed by field_id with claim counts per option aggregated across all guests",
+        "POST /api/rsvp/[token] accepts an optional custom_responses array of { field_id, value } objects in the request body",
+        "Responses are validated using validateCustomResponses against the field definitions before saving",
+        "For signup fields, the API checks current claim counts before upserting and rejects if max_claims_per_item would be exceeded (small race window acceptable for MVP)",
+        "Responses are upserted using ON CONFLICT (field_id, guest_id) DO UPDATE to allow guests to change their answers",
+        "TypeScript typecheck passes with no errors (npm run build)"
       ],
-      "startedAt": "2026-02-16T10:39:50.110253"
+      "priority": 1,
+      "status": "incomplete",
+      "phase": 1
+    },
+    {
+      "id": "US-005",
+      "title": "CustomFieldBuilder component for event creation form",
+      "description": "As an event host, I want to add, configure, reorder, and remove custom fields when creating or editing my event, so that I can collect the exact information I need from guests.",
+      "acceptanceCriteria": [
+        "A new component CustomFieldBuilder exists at src/components/CustomFieldBuilder.tsx",
+        "It is rendered in EventForm (src/components/EventForm.tsx) as a collapsible 'Custom Questions' section between the existing form sections and the Submit button",
+        "An 'Add a question' button opens a type picker with three options: Text Question, Poll, and Signup List",
+        "Each field is rendered as a card with: label input, optional description input, required toggle checkbox",
+        "Poll fields additionally show: an editable option list with add/remove buttons, and an 'Allow multiple selections' checkbox",
+        "Signup fields additionally show: an editable item list with add/remove buttons, and a 'Max signups per item' number input",
+        "Up/down arrow buttons allow reordering fields (no drag-and-drop library needed)",
+        "A delete button removes a field from the list",
+        "Maximum 10 fields enforced \u2014 the 'Add a question' button is disabled when limit is reached",
+        "The component's state (array of field objects) is lifted to EventForm and included in the submit payload",
+        "In edit mode, existing custom fields are loaded and pre-populated in the builder",
+        "TypeScript typecheck passes with no errors (npm run build)"
+      ],
+      "priority": 2,
+      "status": "incomplete",
+      "phase": 2
+    },
+    {
+      "id": "US-006",
+      "title": "RSVP form renders custom field inputs",
+      "description": "As a guest responding to an event, I want to see and fill out the host's custom questions in the RSVP form, so that I can provide the requested information alongside my attendance status.",
+      "acceptanceCriteria": [
+        "A new component CustomFieldInput exists at src/components/CustomFieldInput.tsx that renders the appropriate input for each field type",
+        "Text fields render as a labeled text input (or textarea for longer answers)",
+        "Single-select poll fields render as radio buttons with the poll options",
+        "Multi-select poll fields render as checkboxes with the poll options",
+        "Signup fields render as checkboxes with claim counts displayed (e.g. 'Salad - 2/3 claimed'); fully claimed items are disabled",
+        "Custom field inputs are only shown when the guest's status is 'going' or 'maybe' (not 'not_going')",
+        "RSVPForm (src/components/RSVPForm.tsx) receives custom fields, responses, and signup claims as props and renders CustomFieldInput for each field",
+        "The RSVP page at src/app/rsvp/[token]/page.tsx fetches custom fields, responses, and claims from the API and passes them to RSVPForm",
+        "Required fields are marked with an asterisk and validated before submission",
+        "Custom responses are included in the POST /api/rsvp/[token] payload on submit",
+        "TypeScript typecheck passes with no errors (npm run build)"
+      ],
+      "priority": 2,
+      "status": "incomplete",
+      "phase": 2
+    },
+    {
+      "id": "US-007",
+      "title": "Dashboard shows custom field results",
+      "description": "As an event host, I want to see aggregated results for all custom fields on my event dashboard, so that I can review guest responses and plan accordingly.",
+      "acceptanceCriteria": [
+        "A new component CustomFieldResults exists at src/components/CustomFieldResults.tsx",
+        "It is rendered on the dashboard event detail page at src/app/dashboard/[id]/page.tsx below the guest list section",
+        "Text field results are shown as a table with columns: Guest Name, Response",
+        "Poll field results are shown as horizontal progress bars with vote distribution (option name, count, percentage)",
+        "Signup field results are shown as a table with columns: Item, Claimed By (list of guest names), Spots Left",
+        "The dashboard page fetches all custom field definitions and all guest responses for the event",
+        "Empty fields (no responses yet) show a placeholder message",
+        "If the event has no custom fields, the section is not rendered",
+        "TypeScript typecheck passes with no errors (npm run build)"
+      ],
+      "priority": 2,
+      "status": "incomplete",
+      "phase": 2
+    },
+    {
+      "id": "US-008",
+      "title": "Public event page shows poll results and signup status",
+      "description": "As a visitor viewing a public event page, I want to see poll result summaries and signup list status, so that I can see what others have voted for and what signup spots are available.",
+      "acceptanceCriteria": [
+        "A new API endpoint exists at src/app/api/events/[slug]/custom-fields/route.ts that returns aggregated poll results and signup claim status for a public event",
+        "The endpoint does NOT return text field responses (those are private to the host)",
+        "A new component PublicCustomFields exists at src/components/PublicCustomFields.tsx",
+        "It is rendered on the public event page at src/app/e/[slug]/page.tsx between the description and gift/registry section",
+        "Poll results show vote distribution as progress bars or simple counts",
+        "Signup status shows each item with claimed count vs total spots available",
+        "If the event has no poll or signup fields, the component renders nothing",
+        "TypeScript typecheck passes with no errors (npm run build)"
+      ],
+      "priority": 3,
+      "status": "incomplete",
+      "phase": 3
+    },
+    {
+      "id": "US-009",
+      "title": "E2E tests for custom event fields",
+      "description": "As a developer, I want comprehensive E2E tests for the custom fields feature, so that regressions are caught automatically.",
+      "acceptanceCriteria": [
+        "A new test file exists at e2e/custom-fields.spec.ts",
+        "Test helpers in e2e/helpers.ts include seedCustomField(eventId, overrides?) and seedCustomFieldResponse(fieldId, guestId, value) functions",
+        "cleanupTestData() in e2e/helpers.ts also cleans up event_custom_fields and custom_field_responses test data",
+        "Test: Host can add text, poll, and signup fields during event creation and they are saved",
+        "Test: Custom fields appear on the RSVP form for guests with going/maybe status",
+        "Test: Guest can submit responses for all three field types",
+        "Test: Signup claim limits are enforced (fully claimed items are disabled)",
+        "Test: Host sees custom field results on the dashboard (text table, poll bars, signup table)",
+        "Test: Poll results and signup status are visible on the public event page",
+        "Test: Custom fields are editable and removable when editing an existing event",
+        "All E2E tests pass (npm test)"
+      ],
+      "priority": 3,
+      "status": "incomplete",
+      "phase": 3
     }
   ],
   "branchName": "main",
@@ -84,10 +181,10 @@
     }
   },
   "metadata": {
-    "createdAt": "2026-02-16T15:24:46.587Z",
-    "lastUpdatedAt": "2026-02-16T10:39:50.110282",
-    "totalStories": 4,
-    "completedStories": 3,
-    "currentIteration": 3
+    "createdAt": "2026-02-17T01:51:22.278Z",
+    "lastUpdatedAt": "2026-02-16T20:51:38.220895",
+    "totalStories": 9,
+    "completedStories": 0,
+    "currentIteration": 1
   }
 }

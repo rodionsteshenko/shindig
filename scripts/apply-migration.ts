@@ -17,7 +17,7 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 async function checkTables() {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-  const tables = ["users", "events", "guests", "feature_requests", "feature_votes"];
+  const tables = ["users", "events", "guests", "feature_requests", "feature_votes", "event_custom_fields", "custom_field_responses"];
   const results: Record<string, boolean> = {};
 
   for (const table of tables) {
@@ -34,9 +34,13 @@ async function checkTables() {
   if (allReady) {
     console.log("\n✅ All tables are ready! You can run the tests.");
   } else {
-    console.log("\n❌ Some tables are missing. Please run the migration SQL in the Supabase SQL Editor.");
-    console.log("   File: supabase/migrations/001_initial_schema.sql");
+    console.log("\n❌ Some tables are missing. Please run the migration SQL in the Supabase SQL Editor:");
     console.log("   Dashboard: https://supabase.com/dashboard/project/jppvvoyvsxuqwluxacfu/sql/new");
+    console.log("");
+    console.log("   Migration files to apply:");
+    console.log("   1. supabase/migrations/20260215000000_initial_schema.sql");
+    console.log("   2. supabase/migrations/20260216000000_api_keys_and_features_v2.sql");
+    console.log("   3. supabase/migrations/20260217000000_custom_event_fields.sql");
   }
 }
 

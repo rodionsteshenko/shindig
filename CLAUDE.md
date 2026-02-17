@@ -12,6 +12,8 @@ npm run lint         # ESLint via Next.js
 npm test             # Run all Playwright E2E tests
 npm run test:headed  # Run E2E tests with visible browser
 npm run test:ui      # Run E2E tests with Playwright UI
+npm run pipeline     # Run full feature pipeline (judge → PRD → Ralph)
+npm run setup-github # Create GitHub labels and milestones (idempotent)
 ```
 
 ## Testing
@@ -75,6 +77,68 @@ Key routes:
 - `src/components/` — Shared React components (PascalCase filenames)
 - `src/lib/` — Utility modules and service clients (supabase, resend, etc.)
 - `public/themes/` — Event theme assets
+
+## Feature Pipeline (Ralph)
+
+The pipeline automatically triages user-submitted feature requests, generates PRDs, and implements them using [Ralph](https://github.com/anthropics/ralph) (an AI dev agent).
+
+### How it works
+
+1. **Users submit features** via the `/features` board → stored in Supabase `feature_requests` table
+2. **Judge** (`scripts/judge-features.ts`) — Claude evaluates each open submission: approved, rejected, or needs_clarification
+3. **Generate PRD** (`scripts/generate-prd.ts`) — Claude creates a Ralph-compatible PRD for each approved feature, then creates a **GitHub Issue** with the PRD embedded in a `<details>` block
+4. **Pipeline picks next issue** (`scripts/pipeline.ts`) — queries GitHub Issues labeled `pipeline:queued`, parses the PRD from the issue body, writes it to `.ralph/prd.json`, and runs `ralph execute`
+5. **On completion** — the issue gets labeled `pipeline:completed` and closed
+
+### What lives where
+
+| Concern | Location |
+|---|---|
+| User submissions, votes, AI verdicts | Supabase `feature_requests` table |
+| Implementation tracking (queued/in-progress/completed) | GitHub Issues + `pipeline:*` labels |
+| PRD storage | GitHub Issue body (details block) + Supabase `prd_json` column |
+| Roadmap versions | GitHub Milestones (v1.0 MVP, v1.5, v2.0, v3.0) |
+
+### GitHub Labels
+
+- `pipeline:queued` / `pipeline:in-progress` / `pipeline:completed` — implementation state
+- `type:feature` / `type:bug` — submission type
+- `priority:critical` / `priority:high` / `priority:medium` / `priority:low` — AI severity
+- `source:roadmap` / `source:user` — where the feature came from
+
+Run `npm run setup-github` to create all labels and milestones (idempotent).
+
+### Pipeline scripts
+
+```bash
+npm run judge           # Evaluate open feature requests with Claude
+npm run generate-prd    # Generate PRDs + create GitHub Issues for approved features
+npm run trigger-ralph   # Pick next queued issue, output PRD to stdout
+npm run pipeline        # Full pipeline: judge → generate-prd → pick issue → ralph execute
+npm run seed-roadmap    # Seed feature_requests from FEATURES.md checklist items
+npm run setup-github    # Create GitHub labels and milestones (run once)
+```
+
+### Cron job
+
+The pipeline runs every 15 minutes via a macOS launchd agent:
+
+- **Plist:** `scripts/com.shindig.pipeline.plist` (Label: `com.shindig.pipeline`)
+- **Wrapper:** `scripts/pipeline-wrapper.sh` → runs `npm run pipeline`
+- **Logs:** `logs/pipeline-launchd.log`
+- **Lock:** `.ralph/pipeline.lock` — prevents concurrent runs (auto-expires after 2 hours)
+
+Each invocation implements **one feature** end-to-end (all user stories in its PRD) before exiting.
+
+### Key files
+
+- `scripts/pipeline.ts` — Orchestrator (judge → generate → pick → execute)
+- `scripts/generate-prd.ts` — PRD generation + GitHub Issue creation
+- `scripts/trigger-ralph.ts` — Standalone: pick next queued issue and output PRD
+- `scripts/judge-features.ts` — AI evaluation of submissions
+- `scripts/setup-github-labels.ts` — Label/milestone bootstrap
+- `scripts/seed-features-from-roadmap.ts` — Seed from FEATURES.md
+- `.ralph/prd.json` — Current PRD being executed by Ralph
 
 ## Conventions
 

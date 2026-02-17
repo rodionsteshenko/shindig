@@ -16,7 +16,8 @@
     "generate-prd": "npx tsx --env-file=.env.local scripts/generate-prd.ts",
     "trigger-ralph": "npx tsx --env-file=.env.local scripts/trigger-ralph.ts",
     "pipeline": "npx tsx --env-file=.env.local scripts/pipeline.ts",
-    "seed-roadmap": "npx tsx --env-file=.env.local scripts/seed-features-from-roadmap.ts"
+    "seed-roadmap": "npx tsx --env-file=.env.local scripts/seed-features-from-roadmap.ts",
+    "setup-github": "npx tsx scripts/setup-github-labels.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

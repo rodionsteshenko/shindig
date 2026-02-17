@@ -1,58 +1,85 @@
 /**
  * Ralph Trigger Script (US-015)
  *
- * Fetches the next queued feature (highest votes first), marks it as
- * in_progress, and outputs its PRD JSON to stdout so it can be piped
- * to `ralph process-prd`.
+ * Fetches the next queued feature from GitHub Issues (highest reactions first),
+ * marks it as in-progress, and outputs its PRD JSON to stdout so it can be
+ * piped to `ralph process-prd`.
  *
  * Run: npx tsx --env-file=.env.local scripts/trigger-ralph.ts
  */
 
-import { createClient } from "@supabase/supabase-js";
+import { spawnSync } from "child_process";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+interface GitHubIssue {
+  number: number;
+  title: string;
+  body: string;
+}
 
-async function triggerRalph() {
-  // 1. Fetch next queued feature, ordered by vote_count desc
-  const { data: feature, error } = await supabase
-    .from("feature_requests")
-    .select("id, title, prd_json, vote_count")
-    .eq("implementation_status", "queued")
-    .order("vote_count", { ascending: false })
-    .limit(1)
-    .single();
+/** Parse PRD JSON from the details block in an issue body */
+function parsePrdFromBody(body: string): Record<string, unknown> | null {
+  const match = body.match(/```json\n([\s\S]*?)\n```/);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[1]);
+  } catch {
+    return null;
+  }
+}
 
-  if (error || !feature) {
+function triggerRalph() {
+  // 1. Fetch next queued issue, sorted by reactions
+  const result = spawnSync("gh", [
+    "issue", "list",
+    "--label", "pipeline:queued",
+    "--json", "number,title,body",
+    "--limit", "1",
+    "--search", "sort:reactions-+1-desc",
+  ], {
+    encoding: "utf-8",
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  if (result.status !== 0) {
+    console.error(`gh issue list failed: ${result.stderr}`);
+    process.exit(1);
+  }
+
+  let issues: GitHubIssue[];
+  try {
+    issues = JSON.parse(result.stdout.trim() || "[]");
+  } catch {
     console.log("No queued features");
     return;
   }
 
-  if (!feature.prd_json) {
-    console.error(`Feature "${feature.title}" has no PRD JSON — run generate-prd first`);
+  if (issues.length === 0) {
+    console.log("No queued features");
+    return;
+  }
+
+  const issue = issues[0];
+  const prd = parsePrdFromBody(issue.body);
+
+  if (!prd) {
+    console.error(`Issue #${issue.number} "${issue.title}" has no parseable PRD — run generate-prd first`);
     process.exit(1);
   }
 
-  // 2. Mark as in_progress
-  const { error: updateError } = await supabase
-    .from("feature_requests")
-    .update({ implementation_status: "in_progress" })
-    .eq("id", feature.id);
+  // 2. Mark as in-progress
+  spawnSync("gh", [
+    "issue", "edit", String(issue.number),
+    "--add-label", "pipeline:in-progress",
+    "--remove-label", "pipeline:queued",
+  ], {
+    encoding: "utf-8",
+    stdio: ["pipe", "pipe", "pipe"],
+  });
 
-  if (updateError) {
-    console.error(`Failed to update status: ${updateError.message}`);
-    process.exit(1);
-  }
-
-  console.error(`Processing: ${feature.title} (${feature.vote_count} votes)`);
+  console.error(`Processing: ${issue.title} (#${issue.number})`);
 
   // 3. Output PRD JSON to stdout
-  console.log(JSON.stringify(feature.prd_json, null, 2));
+  console.log(JSON.stringify(prd, null, 2));
 }
 
-triggerRalph().catch((err) => {
-  console.error("Trigger script failed:", err.message);
-  process.exit(1);
-});
+triggerRalph();

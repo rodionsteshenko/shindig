@@ -19,7 +19,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { execSync, spawnSync } from "child_process";
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
-import { resolve } from "path";
+import { join, resolve } from "path";
+import { tmpdir } from "os";
 
 const ROOT = resolve(__dirname, "..");
 const PRD_PATH = resolve(ROOT, ".ralph", "prd.json");
@@ -115,6 +116,109 @@ function parsePrdFromBody(body: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
+}
+
+/** Generate a PRD for an issue that has no embedded PRD JSON */
+function generatePrdForIssue(issue: GitHubIssue): Record<string, unknown> | null {
+  log(`Generating PRD inline for issue #${issue.number} "${issue.title}"...`);
+
+  const prompt = `You are a product manager generating a PRD for a development agent called Ralph.
+
+Generate a PRD JSON object for the following feature for Shindig, an event planning web app built with Next.js 15, React 19, TypeScript, Tailwind CSS, and Supabase.
+
+Feature: ${issue.title}
+
+Return ONLY a valid JSON object (no markdown fences) with this exact structure:
+{
+  "project": "Shindig",
+  "description": "Brief description of what this PRD covers",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Story title in imperative form",
+      "description": "As a [role], I want [goal] so that [benefit]",
+      "acceptanceCriteria": ["Criterion 1", "Criterion 2"],
+      "priority": 1,
+      "status": "incomplete",
+      "phase": 1
+    }
+  ]
+}
+
+Guidelines:
+- Break the feature into 1-4 user stories depending on complexity
+- Each story should be independently implementable
+- Acceptance criteria should be specific and testable
+- Include criteria for TypeScript typecheck passing
+- Include E2E test criteria where appropriate
+- Reference existing file paths and patterns from the Shindig codebase (src/app/ for routes, src/components/ for UI, src/lib/ for utilities)`;
+
+  const escapedPrompt = prompt.replace(/"/g, '\\"').replace(/\n/g, "\\n");
+
+  let result: string;
+  try {
+    result = execSync(
+      `claude --print --dangerously-skip-permissions -p "${escapedPrompt}"`,
+      {
+        encoding: "utf-8",
+        maxBuffer: 1024 * 1024,
+        env: cleanEnv,
+      }
+    ).trim();
+  } catch (err) {
+    log(`Claude CLI failed for issue #${issue.number}: ${err instanceof Error ? err.message : String(err)}`);
+    return null;
+  }
+
+  // Strip markdown fences if present
+  let cleaned = result;
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+  }
+
+  let prd: Record<string, unknown>;
+  try {
+    prd = JSON.parse(cleaned);
+  } catch {
+    log(`Failed to parse generated PRD JSON for issue #${issue.number}`);
+    return null;
+  }
+
+  // Write PRD back to the issue body
+  const prdBody = `${issue.body.trim()}
+
+## PRD
+
+<details><summary>Ralph PRD JSON</summary>
+
+\`\`\`json
+${JSON.stringify(prd, null, 2)}
+\`\`\`
+
+</details>`;
+
+  const bodyFile = join(tmpdir(), `shindig-prd-${issue.number}-${Date.now()}.md`);
+  try {
+    writeFileSync(bodyFile, prdBody);
+    const editResult = spawnSync("gh", [
+      "issue", "edit", String(issue.number),
+      "--body-file", bodyFile,
+    ], {
+      encoding: "utf-8",
+      cwd: ROOT,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    if (editResult.status !== 0) {
+      log(`Failed to update issue #${issue.number} body: ${editResult.stderr}`);
+    } else {
+      log(`PRD written back to issue #${issue.number}`);
+    }
+  } finally {
+    try { unlinkSync(bodyFile); } catch { /* ignore */ }
+  }
+
+  return prd;
 }
 
 /** Ensure .ralph/prd.json has the metadata/phases/branchName Ralph requires */
@@ -314,10 +418,15 @@ async function runPipeline() {
   }
 
   const next = queuedIssues[0];
-  const prd = parsePrdFromBody(next.body);
+  let prd = parsePrdFromBody(next.body);
 
   if (!prd) {
-    log(`Issue #${next.number} "${next.title}" has no parseable PRD — skipping`);
+    log(`Issue #${next.number} "${next.title}" has no parseable PRD — generating inline...`);
+    prd = generatePrdForIssue(next);
+  }
+
+  if (!prd) {
+    log(`Issue #${next.number} "${next.title}" — PRD generation failed, skipping`);
     log("=== Pipeline run complete ===");
     return;
   }
