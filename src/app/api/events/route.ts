@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { generateSlug } from "@/lib/utils";
-import { validateEventInput, validateSlug, MAX_EVENTS_PER_ACCOUNT } from "@/lib/validation";
+import { validateEventInput, validateSlug, validateCustomFields, MAX_EVENTS_PER_ACCOUNT } from "@/lib/validation";
 import { sanitizeError } from "@/lib/apiResponse";
+import type { CustomFieldConfig } from "@/lib/types";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -18,6 +19,18 @@ export async function POST(request: Request) {
   const validation = validateEventInput(body);
   if (!validation.valid) {
     return NextResponse.json({ error: "Validation failed", errors: validation.errors }, { status: 400 });
+  }
+
+  // Validate custom fields if provided
+  const customFields = body.custom_fields;
+  if (customFields !== undefined) {
+    if (!Array.isArray(customFields)) {
+      return NextResponse.json({ error: "Validation failed", errors: { custom_fields: "Must be an array" } }, { status: 400 });
+    }
+    const cfValidation = validateCustomFields(customFields);
+    if (!cfValidation.valid) {
+      return NextResponse.json({ error: "Validation failed", errors: { custom_fields: cfValidation.errors } }, { status: 400 });
+    }
   }
 
   // Check account limits
@@ -86,6 +99,30 @@ export async function POST(request: Request) {
 
     if (error) {
       return NextResponse.json({ error: sanitizeError(error) }, { status: 400 });
+    }
+
+    // Insert custom fields if provided
+    if (Array.isArray(customFields) && customFields.length > 0) {
+      const fieldsToInsert = customFields.map((field, index) => ({
+        event_id: data.id,
+        type: field.type,
+        label: field.label,
+        description: field.description || null,
+        required: field.required ?? false,
+        sort_order: field.sort_order ?? index,
+        options: field.options || null,
+        config: (field.config || {}) as CustomFieldConfig,
+      }));
+
+      const { error: cfError } = await supabase
+        .from("event_custom_fields")
+        .insert(fieldsToInsert);
+
+      if (cfError) {
+        // Clean up the event if custom fields failed to insert
+        await supabase.from("events").delete().eq("id", data.id);
+        return NextResponse.json({ error: sanitizeError(cfError) }, { status: 400 });
+      }
     }
 
     return NextResponse.json(data, { status: 201 });
