@@ -581,3 +581,34 @@ Run in Supabase SQL Editor to enable database tests.
 ```
 
 ---
+
+## Iteration 3 - US-003 - 2026-02-16T21:41:00.995706
+**Story**: Event creation and edit API accepts custom fields
+**Status**: ✅ PASSED
+
+**Agent Output**:
+```
+[96m╔══════════════════════════════════════════════════════════════════════╗[0m
+[96m║[0m  [1mRALPH → CLAUDE[0m                                                      [96m║[0m
+[96m║[0m[90m  Model: claude-opus-4-5  │  Session: 11382c20                        [0m[96m║[0m
+[96m╚══════════════════════════════════════════════════════════════════════╝[0m
+
+
+[90m[21:11:39][0m 📁 [1mWorking...[0m
+           [90m├──[0m [97mTodoWrite:[0m 
+           [90m├──[0m [95mglob:[0m search
+   ...
+```
+
+---
+
+## Iteration 4 - US-004 - 2026-02-16T22:41:59.431311
+**Story**: RSVP API returns and accepts custom field data
+**Status**: ❌ FAILED
+
+**Agent Output**:
+```
+Claude Code execution timed out...
+```
+
+---
