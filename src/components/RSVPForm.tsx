@@ -1,14 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import type { Guest, Event } from "@/lib/types";
+import type { Guest, Event, CustomField, CustomFieldResponse } from "@/lib/types";
+import CustomFieldInput, { type SignupClaims } from "./CustomFieldInput";
 
 interface RSVPFormProps {
   guest: Guest;
   event: Event;
+  customFields?: CustomField[];
+  customResponses?: CustomFieldResponse[];
+  signupClaims?: SignupClaims;
 }
 
-export default function RSVPForm({ guest, event }: RSVPFormProps) {
+export default function RSVPForm({
+  guest,
+  event,
+  customFields = [],
+  customResponses = [],
+  signupClaims = {},
+}: RSVPFormProps) {
   const [status, setStatus] = useState(guest.rsvp_status);
   const [plusOneCount, setPlusOneCount] = useState(guest.plus_one_count);
   const [dietary, setDietary] = useState(guest.dietary ?? "");
@@ -16,11 +26,68 @@ export default function RSVPForm({ guest, event }: RSVPFormProps) {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  // Initialize custom field values from existing responses
+  const [customValues, setCustomValues] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    for (const resp of customResponses) {
+      initial[resp.field_id] = resp.value ?? "";
+    }
+    return initial;
+  });
+
+  function handleCustomFieldChange(fieldId: string, value: string) {
+    setCustomValues((prev) => ({ ...prev, [fieldId]: value }));
+    // Clear validation error when user starts typing
+    if (validationErrors[fieldId]) {
+      setValidationErrors((prev) => {
+        const next = { ...prev };
+        delete next[fieldId];
+        return next;
+      });
+    }
+  }
+
+  // Validate required custom fields before submission
+  function validateCustomFields(): boolean {
+    const errors: Record<string, string> = {};
+    const showCustomFields = status === "going" || status === "maybe";
+
+    if (showCustomFields) {
+      for (const field of customFields) {
+        if (field.required) {
+          const value = customValues[field.id]?.trim();
+          if (!value) {
+            errors[field.id] = `${field.label} is required`;
+          }
+        }
+      }
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    // Validate custom fields before submitting
+    if (!validateCustomFields()) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
+
+    // Build custom_responses array for the API
+    const showCustomFields = status === "going" || status === "maybe";
+    const customResponsesPayload = showCustomFields
+      ? customFields.map((field) => ({
+          field_id: field.id,
+          value: customValues[field.id] || null,
+        }))
+      : [];
 
     const res = await fetch(`/api/rsvp/${guest.rsvp_token}`, {
       method: "POST",
@@ -30,6 +97,7 @@ export default function RSVPForm({ guest, event }: RSVPFormProps) {
         plus_one_count: status === "going" || status === "maybe" ? plusOneCount : 0,
         dietary: dietary || null,
         message: message || null,
+        custom_responses: customResponsesPayload,
       }),
     });
 
@@ -119,6 +187,26 @@ export default function RSVPForm({ guest, event }: RSVPFormProps) {
             placeholder="Vegetarian, gluten-free, allergies..."
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-shindig-500 focus:border-transparent outline-none"
           />
+        </div>
+      )}
+
+      {/* Custom Fields - only shown when going or maybe */}
+      {(status === "going" || status === "maybe") && customFields.length > 0 && (
+        <div className="space-y-4 pt-2">
+          <hr className="border-gray-200" />
+          {customFields.map((field) => (
+            <div key={field.id}>
+              <CustomFieldInput
+                field={field}
+                value={customValues[field.id] ?? ""}
+                onChange={(value) => handleCustomFieldChange(field.id, value)}
+                signupClaims={signupClaims}
+              />
+              {validationErrors[field.id] && (
+                <p className="text-red-600 text-sm mt-1">{validationErrors[field.id]}</p>
+              )}
+            </div>
+          ))}
         </div>
       )}
 

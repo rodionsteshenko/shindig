@@ -563,3 +563,148 @@ test.describe("RSVP Custom Fields API - Edge cases", () => {
     expect(res.status()).toBe(200);
   });
 });
+
+/**
+ * E2E tests for RSVP form UI rendering custom field inputs (US-006).
+ * Tests that CustomFieldInput renders correctly for text, poll, and signup fields.
+ */
+test.describe("RSVP Form - Custom Field UI", () => {
+  let uiTestGuest: Guest;
+
+  test.beforeAll(async () => {
+    if (!tablesExist) return;
+    // Create a separate guest for UI tests
+    uiTestGuest = (await seedGuest(testEvent.id, {
+      name: "E2E UI Test Guest",
+      email: "ui-test-guest@shindig.test",
+    })) as Guest;
+  });
+
+  test.afterAll(async () => {
+    if (!tablesExist) return;
+    const supabase = adminClient();
+    if (uiTestGuest?.id) {
+      await supabase.from("custom_field_responses").delete().eq("guest_id", uiTestGuest.id);
+    }
+  });
+
+  test("shows custom fields only when Going is selected", async ({ page }) => {
+    test.skip(!tablesExist, "Migration not applied yet");
+    await page.goto(`/rsvp/${uiTestGuest.rsvp_token}`);
+
+    // Initially no custom fields visible (status is pending)
+    await expect(page.getByText("Dietary restrictions")).not.toBeVisible();
+    await expect(page.getByText("Preferred date")).not.toBeVisible();
+
+    // Click Going - custom fields should appear
+    await page.getByRole("button", { name: /Going/i }).click();
+    await expect(page.getByText("Dietary restrictions")).toBeVisible();
+    await expect(page.getByText("Preferred date")).toBeVisible();
+    await expect(page.getByText("Bring to share")).toBeVisible();
+  });
+
+  test("shows custom fields when Maybe is selected", async ({ page }) => {
+    test.skip(!tablesExist, "Migration not applied yet");
+    await page.goto(`/rsvp/${uiTestGuest.rsvp_token}`);
+
+    // Click Maybe - custom fields should appear
+    await page.getByRole("button", { name: /Maybe/i }).click();
+    await expect(page.getByText("Preferred date")).toBeVisible();
+    await expect(page.getByText("Bring to share")).toBeVisible();
+  });
+
+  test("hides custom fields when Can't is selected", async ({ page }) => {
+    test.skip(!tablesExist, "Migration not applied yet");
+    await page.goto(`/rsvp/${uiTestGuest.rsvp_token}`);
+
+    // Click Going first to show fields
+    await page.getByRole("button", { name: /Going/i }).click();
+    await expect(page.getByText("Preferred date")).toBeVisible();
+
+    // Click Can't - custom fields should hide
+    await page.getByRole("button", { name: /Can't/i }).click();
+    await expect(page.getByText("Preferred date")).not.toBeVisible();
+  });
+
+  test("renders text field as text input", async ({ page }) => {
+    test.skip(!tablesExist, "Migration not applied yet");
+    await page.goto(`/rsvp/${uiTestGuest.rsvp_token}`);
+    await page.getByRole("button", { name: /Going/i }).click();
+
+    // Text field should render with placeholder
+    const textInput = page.getByPlaceholder("Your answer...");
+    await expect(textInput).toBeVisible();
+  });
+
+  test("renders single-select poll as radio buttons", async ({ page }) => {
+    test.skip(!tablesExist, "Migration not applied yet");
+    await page.goto(`/rsvp/${uiTestGuest.rsvp_token}`);
+    await page.getByRole("button", { name: /Going/i }).click();
+
+    // Poll options should be visible as radio buttons
+    await expect(page.getByText("Friday")).toBeVisible();
+    await expect(page.getByText("Saturday")).toBeVisible();
+    await expect(page.getByText("Sunday")).toBeVisible();
+
+    // Should have radio inputs
+    const fridayRadio = page.getByRole("radio").first();
+    await expect(fridayRadio).toBeVisible();
+  });
+
+  test("renders signup field with claim counts", async ({ page }) => {
+    test.skip(!tablesExist, "Migration not applied yet");
+    await page.goto(`/rsvp/${uiTestGuest.rsvp_token}`);
+    await page.getByRole("button", { name: /Going/i }).click();
+
+    // Signup field should show options with claim counts
+    await expect(page.getByText("Salad")).toBeVisible();
+    await expect(page.getByText("Drinks")).toBeVisible();
+    await expect(page.getByText("Dessert")).toBeVisible();
+
+    // Should show claim count format (e.g., "0/2 claimed")
+    await expect(page.getByText(/\/2 claimed/)).toBeVisible();
+  });
+
+  test("marks required fields with asterisk", async ({ page }) => {
+    test.skip(!tablesExist, "Migration not applied yet");
+    await page.goto(`/rsvp/${uiTestGuest.rsvp_token}`);
+    await page.getByRole("button", { name: /Going/i }).click();
+
+    // Required poll field should have asterisk
+    const requiredLabel = page.locator("label", { hasText: "Preferred date" });
+    await expect(requiredLabel.locator("span.text-red-500")).toBeVisible();
+  });
+
+  test("validates required fields before submission", async ({ page }) => {
+    test.skip(!tablesExist, "Migration not applied yet");
+    await page.goto(`/rsvp/${uiTestGuest.rsvp_token}`);
+    await page.getByRole("button", { name: /Going/i }).click();
+
+    // Try to submit without filling required poll field
+    await page.getByRole("button", { name: /Submit RSVP/i }).click();
+
+    // Should show validation error
+    await expect(page.getByText(/Preferred date is required/i)).toBeVisible();
+  });
+
+  test("submits custom field responses successfully", async ({ page }) => {
+    test.skip(!tablesExist, "Migration not applied yet");
+    await page.goto(`/rsvp/${uiTestGuest.rsvp_token}`);
+    await page.getByRole("button", { name: /Going/i }).click();
+
+    // Fill text field
+    await page.getByPlaceholder("Your answer...").fill("No peanuts please");
+
+    // Select poll option
+    await page.getByText("Saturday").click();
+
+    // Select signup option
+    await page.getByText("Dessert").click();
+
+    // Submit
+    await page.getByRole("button", { name: /Submit RSVP/i }).click();
+
+    // Should show success message
+    await expect(page.getByText(/You're in/i)).toBeVisible();
+  });
+});
