@@ -3,6 +3,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatTime, isUUID } from "@/lib/utils";
 import EventLocation from "@/components/EventLocation";
+import PublicCustomFields from "@/components/PublicCustomFields";
 import type { Event } from "@/lib/types";
 import type { Metadata } from "next";
 
@@ -122,6 +123,9 @@ export default async function EventPage({ params }: Props) {
           <p className="text-gray-700 whitespace-pre-wrap">{e.description}</p>
         </div>
       )}
+
+      {/* Poll Results & Signup Status */}
+      <PublicCustomFields eventSlug={e.slug} />
 
       {/* Gift Info */}
       {(e.gift_registry_url || e.gift_message) && (
