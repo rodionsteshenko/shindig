@@ -3,19 +3,54 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { coverPresets } from "@/lib/coverPresets";
-import type { Event } from "@/lib/types";
+import CustomFieldBuilder, { type CustomFieldBuilderItem } from "./CustomFieldBuilder";
+import type { Event, CustomField } from "@/lib/types";
 
 interface EventFormProps {
   event?: Event;
+  initialCustomFields?: CustomField[];
 }
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-export default function EventForm({ event }: EventFormProps) {
+// Convert API CustomField to local CustomFieldBuilderItem
+function apiFieldToBuilderItem(field: CustomField): CustomFieldBuilderItem {
+  return {
+    id: field.id,
+    localId: `existing-${field.id}`,
+    type: field.type,
+    label: field.label,
+    description: field.description ?? "",
+    required: field.required,
+    options: field.options ?? [],
+    config: field.config ?? {},
+  };
+}
+
+// Convert CustomFieldBuilderItem to API format
+function builderItemToApiField(item: CustomFieldBuilderItem, sortOrder: number) {
+  return {
+    id: item.id, // undefined for new fields
+    type: item.type,
+    label: item.label,
+    description: item.description || null,
+    required: item.required,
+    sort_order: sortOrder,
+    options: item.options.length > 0 ? item.options : null,
+    config: item.config,
+  };
+}
+
+export default function EventForm({ event, initialCustomFields }: EventFormProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  // Custom fields state
+  const [customFields, setCustomFields] = useState<CustomFieldBuilderItem[]>(() =>
+    (initialCustomFields ?? []).map(apiFieldToBuilderItem)
+  );
 
   const [title, setTitle] = useState(event?.title ?? "");
   const [description, setDescription] = useState(event?.description ?? "");
@@ -171,6 +206,11 @@ export default function EventForm({ event }: EventFormProps) {
     setError(null);
     setFieldErrors({});
 
+    // Convert custom fields to API format
+    const customFieldsPayload = customFields.map((field, index) =>
+      builderItemToApiField(field, index)
+    );
+
     const body = {
       title,
       description: description || null,
@@ -185,6 +225,7 @@ export default function EventForm({ event }: EventFormProps) {
       gift_registry_url: giftRegistryUrl || null,
       gift_message: giftMessage || null,
       slug: customSlug.trim() || null,
+      custom_fields: customFieldsPayload,
     };
 
     const url = event
@@ -470,6 +511,12 @@ export default function EventForm({ event }: EventFormProps) {
           />
         </div>
       </div>
+
+      {/* Custom Questions */}
+      <CustomFieldBuilder
+        fields={customFields}
+        onChange={setCustomFields}
+      />
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3">
