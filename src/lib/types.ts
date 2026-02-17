@@ -77,3 +77,33 @@ export interface ApiKey {
   expires_at: string | null;
   created_at: string;
 }
+
+// Custom event fields types
+export type CustomFieldType = "text" | "poll" | "signup";
+
+export interface CustomFieldConfig {
+  multi_select?: boolean;
+  max_claims_per_item?: number;
+}
+
+export interface CustomField {
+  id: string;
+  event_id: string;
+  type: CustomFieldType;
+  label: string;
+  description: string | null;
+  required: boolean;
+  sort_order: number;
+  options: string[] | null;
+  config: CustomFieldConfig;
+  created_at: string;
+}
+
+export interface CustomFieldResponse {
+  id: string;
+  field_id: string;
+  guest_id: string;
+  value: string | null;
+  created_at: string;
+  updated_at: string;
+}
