@@ -114,6 +114,56 @@ export async function seedGuest(eventId: string, overrides?: Record<string, unkn
 }
 
 /**
+ * Creates a custom field for an event via the admin client.
+ */
+export async function seedCustomField(eventId: string, overrides?: Record<string, unknown>) {
+  const supabase = adminClient();
+
+  const { data, error } = await supabase
+    .from("event_custom_fields")
+    .insert({
+      event_id: eventId,
+      type: "text",
+      label: "Test Custom Field",
+      description: null,
+      required: false,
+      sort_order: 0,
+      options: null,
+      config: {},
+      ...overrides,
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to seed custom field: ${error.message}`);
+  return data;
+}
+
+/**
+ * Creates a custom field response via the admin client.
+ */
+export async function seedCustomFieldResponse(
+  fieldId: string,
+  guestId: string,
+  value: string
+) {
+  const supabase = adminClient();
+
+  const { data, error } = await supabase
+    .from("custom_field_responses")
+    .insert({
+      field_id: fieldId,
+      guest_id: guestId,
+      value,
+    })
+    .select()
+    .single();
+
+  if (error) throw new Error(`Failed to seed custom field response: ${error.message}`);
+  return data;
+}
+
+/**
  * Creates a test API key via the admin client.
  * Returns both the raw key (for testing auth) and the database row.
  */
@@ -155,16 +205,49 @@ export async function seedApiKey(
 export async function cleanupTestData() {
   const supabase = adminClient();
 
-  // Delete guests first (FK constraint)
-  await supabase.from("guests").delete().like("email", "%shindig.test");
-  // Delete events owned by test user
+  // Get test user for host-owned data cleanup
   const { data: users } = await supabase.auth.admin.listUsers();
   const testUser = users?.users?.find((u) => u.email === TEST_USER_EMAIL);
+
+  // Get test event IDs for custom field cleanup
+  let testEventIds: string[] = [];
+  if (testUser) {
+    const { data: events } = await supabase
+      .from("events")
+      .select("id")
+      .eq("host_id", testUser.id);
+    testEventIds = (events ?? []).map((e) => e.id);
+  }
+
+  // Clean up custom field responses for test events
+  if (testEventIds.length > 0) {
+    // Get all custom field IDs for test events
+    const { data: fields } = await supabase
+      .from("event_custom_fields")
+      .select("id")
+      .in("event_id", testEventIds);
+    const fieldIds = (fields ?? []).map((f) => f.id);
+
+    // Delete responses for those fields
+    if (fieldIds.length > 0) {
+      await supabase.from("custom_field_responses").delete().in("field_id", fieldIds);
+    }
+
+    // Delete the custom fields themselves
+    await supabase.from("event_custom_fields").delete().in("event_id", testEventIds);
+  }
+
+  // Delete guests (FK constraint with events)
+  await supabase.from("guests").delete().like("email", "%shindig.test");
+
+  // Delete events owned by test user
   if (testUser) {
     await supabase.from("events").delete().eq("host_id", testUser.id);
   }
+
   // Delete feature test data
   await supabase.from("feature_requests").delete().like("title", "E2E Test%");
+
   // Delete test API keys
   if (testUser) {
     await supabase.from("api_keys").delete().eq("user_id", testUser.id);
