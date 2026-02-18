@@ -14,6 +14,15 @@ export function sanitizeHtml(html: string | null | undefined): string | null {
     return null;
   }
 
+  // Configure DOMPurify to add hook for links
+  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    // Force all links to open in new tab with noopener noreferrer
+    if (node.tagName === "A" && node.hasAttribute("href")) {
+      node.setAttribute("target", "_blank");
+      node.setAttribute("rel", "noopener noreferrer");
+    }
+  });
+
   const sanitized = DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
       "p",
@@ -31,9 +40,10 @@ export function sanitizeHtml(html: string | null | undefined): string | null {
       "a",
     ],
     ALLOWED_ATTR: ["href", "target", "rel", "class"],
-    // Force all links to open in new tab with noopener
-    ADD_ATTR: ["target", "rel"],
   });
+
+  // Remove the hook to prevent memory leaks and side effects
+  DOMPurify.removeHook("afterSanitizeAttributes");
 
   // Return null if sanitization resulted in empty string
   if (sanitized.trim() === "" || sanitized === "<p></p>") {

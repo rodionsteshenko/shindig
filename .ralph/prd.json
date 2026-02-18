@@ -38,9 +38,11 @@
         "E2E test in e2e/event-creation.spec.ts verifies the rich text editor renders on the create page"
       ],
       "priority": 1,
-      "status": "in_progress",
+      "status": "complete",
       "phase": 2,
-      "startedAt": "2026-02-18T07:26:36.364253"
+      "startedAt": "2026-02-18T07:26:36.364253",
+      "actualDuration": 1039.1094980239868,
+      "iterationNumber": 2
     },
     {
       "id": "US-003",
@@ -58,8 +60,9 @@
         "E2E test in e2e/public-event.spec.ts verifies formatted description renders with correct HTML elements (e.g., bold text appears in a <strong> tag)"
       ],
       "priority": 1,
-      "status": "incomplete",
-      "phase": 3
+      "status": "in_progress",
+      "phase": 3,
+      "startedAt": "2026-02-18T07:44:06.073314"
     },
     {
       "id": "US-004",
@@ -86,9 +89,9 @@
   },
   "metadata": {
     "createdAt": "2026-02-18T11:52:05.457Z",
-    "lastUpdatedAt": "2026-02-18T07:26:36.364274",
+    "lastUpdatedAt": "2026-02-18T07:44:06.073345",
     "totalStories": 4,
-    "completedStories": 1,
-    "currentIteration": 1
+    "completedStories": 2,
+    "currentIteration": 2
   }
 }

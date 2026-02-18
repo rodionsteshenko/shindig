@@ -5,6 +5,8 @@ import type { Event } from "../src/lib/types";
 let testEvent: Event;
 let eventWithAutoMapsLink: Event;
 let eventWithoutLocation: Event;
+let eventWithRichTextDescription: Event;
+let eventWithPlainTextDescription: Event;
 
 test.beforeAll(async () => {
   const userId = await ensureTestUser();
@@ -31,6 +33,20 @@ test.beforeAll(async () => {
     description: "Event without any location set",
     location: null,
     maps_url: null,
+  }) as Event;
+
+  // Event with rich text HTML description
+  eventWithRichTextDescription = await seedEvent(userId, {
+    title: "E2E Test Rich Text Event",
+    description: '<p>Welcome to our <strong>special event</strong>!</p><p>Please note the <em>important details</em>:</p><ul><li>Bring your own food</li><li>Dress code: casual</li></ul><h2>Schedule</h2><p>Check out <a href="https://example.com/schedule">our schedule</a> for more info.</p>',
+    location: "Rich Text Venue",
+  }) as Event;
+
+  // Event with legacy plain text description (no HTML)
+  eventWithPlainTextDescription = await seedEvent(userId, {
+    title: "E2E Test Plain Text Event",
+    description: "This is a simple event.\nJoin us for fun!\n\nBring snacks.",
+    location: "Plain Text Venue",
   }) as Event;
 });
 
@@ -97,5 +113,46 @@ test.describe("Public Event Page", () => {
   test("returns 404 for non-existent UUID", async ({ page }) => {
     await page.goto("/e/00000000-0000-0000-0000-000000000000");
     await expect(page.getByText("404")).toBeVisible();
+  });
+
+  test("renders rich text description with HTML formatting", async ({ page }) => {
+    await page.goto(`/e/${eventWithRichTextDescription.slug}`);
+
+    // Verify bold text is rendered in <strong> tag
+    const boldText = page.locator("strong", { hasText: "special event" });
+    await expect(boldText).toBeVisible();
+
+    // Verify italic text is rendered in <em> tag
+    const italicText = page.locator("em", { hasText: "important details" });
+    await expect(italicText).toBeVisible();
+
+    // Verify list is rendered with <ul> and <li> tags
+    const list = page.locator("ul");
+    await expect(list).toBeVisible();
+    await expect(list.locator("li", { hasText: "Bring your own food" })).toBeVisible();
+    await expect(list.locator("li", { hasText: "Dress code: casual" })).toBeVisible();
+
+    // Verify heading is rendered
+    const heading = page.locator("h2", { hasText: "Schedule" });
+    await expect(heading).toBeVisible();
+
+    // Verify link is rendered with correct attributes
+    const link = page.locator('a[href="https://example.com/schedule"]');
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  test("renders plain text description correctly (legacy fallback)", async ({ page }) => {
+    await page.goto(`/e/${eventWithPlainTextDescription.slug}`);
+
+    // Verify plain text content is displayed
+    await expect(page.getByText("This is a simple event.")).toBeVisible();
+    await expect(page.getByText("Join us for fun!")).toBeVisible();
+    await expect(page.getByText("Bring snacks.")).toBeVisible();
+
+    // Verify prose styling is applied (description container has prose class)
+    const descriptionContainer = page.locator(".prose");
+    await expect(descriptionContainer).toBeVisible();
   });
 });

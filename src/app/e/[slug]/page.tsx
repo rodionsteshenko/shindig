@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { formatDate, formatTime, isUUID } from "@/lib/utils";
 import EventLocation from "@/components/EventLocation";
 import PublicCustomFields from "@/components/PublicCustomFields";
+import RichTextDisplay from "@/components/RichTextDisplay";
 import type { Event } from "@/lib/types";
 import type { Metadata } from "next";
 
@@ -119,9 +120,7 @@ export default async function EventPage({ params }: Props) {
       </div>
 
       {e.description && (
-        <div className="prose max-w-none mb-8">
-          <p className="text-gray-700 whitespace-pre-wrap">{e.description}</p>
-        </div>
+        <RichTextDisplay html={e.description} className="mb-8" />
       )}
 
       {/* Poll Results & Signup Status */}
