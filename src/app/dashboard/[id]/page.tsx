@@ -7,6 +7,7 @@ import GuestForm from "@/components/GuestForm";
 import ExportCSVButton from "@/components/ExportCSVButton";
 import ActionButton from "@/components/ActionButton";
 import CustomFieldResults from "@/components/CustomFieldResults";
+import RichTextDisplay from "@/components/RichTextDisplay";
 import type { Event, Guest, CustomField, CustomFieldResponse } from "@/lib/types";
 
 interface Props {
@@ -87,6 +88,16 @@ export default async function EventDashboardPage({ params }: Props) {
           </Link>
         </div>
       </div>
+
+      {/* Description */}
+      {e.description && (
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold mb-3">Description</h2>
+          <div className="bg-white rounded-xl border p-4">
+            <RichTextDisplay html={e.description} />
+          </div>
+        </section>
+      )}
 
       {/* RSVP Stats */}
       <section className="mb-8">

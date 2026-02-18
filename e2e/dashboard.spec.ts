@@ -102,4 +102,57 @@ test.describe("Event Dashboard", () => {
     const titleInput = page.locator("#title");
     await expect(titleInput).toHaveValue(event.title);
   });
+
+  test("shows rich text description with HTML formatting", async ({ page }) => {
+    await cleanupTestData();
+    const userId = await loginAsTestUser(page);
+    const htmlDescription = "<p>This is a <strong>bold</strong> description with <em>italic</em> text.</p><ul><li>First item</li><li>Second item</li></ul>";
+    const event = await seedEvent(userId, { description: htmlDescription });
+
+    await page.goto(`/dashboard/${event.id}`);
+
+    // Description section should be visible
+    await expect(page.getByRole("heading", { name: "Description" })).toBeVisible();
+
+    // Get the description container
+    const descriptionSection = page.locator("section").filter({ has: page.getByRole("heading", { name: "Description" }) });
+
+    // Should render the HTML content as styled prose
+    await expect(descriptionSection.locator("strong")).toHaveText("bold");
+    await expect(descriptionSection.locator("em")).toHaveText("italic");
+
+    // Should render the list
+    await expect(descriptionSection.locator("li")).toHaveCount(2);
+    await expect(descriptionSection.locator("li").first()).toHaveText("First item");
+    await expect(descriptionSection.locator("li").last()).toHaveText("Second item");
+  });
+
+  test("does not show description section when no description", async ({ page }) => {
+    await cleanupTestData();
+    const userId = await loginAsTestUser(page);
+    const event = await seedEvent(userId, { description: null });
+
+    await page.goto(`/dashboard/${event.id}`);
+
+    // Description section should NOT be visible
+    await expect(page.getByRole("heading", { name: "Description" })).not.toBeVisible();
+
+    // But other sections should be visible
+    await expect(page.getByRole("heading", { name: "RSVP Summary" })).toBeVisible();
+  });
+
+  test("renders plain text description correctly (legacy fallback)", async ({ page }) => {
+    await cleanupTestData();
+    const userId = await loginAsTestUser(page);
+    const plainDescription = "This is a plain text description\nwith multiple lines.";
+    const event = await seedEvent(userId, { description: plainDescription });
+
+    await page.goto(`/dashboard/${event.id}`);
+
+    // Description section should be visible
+    await expect(page.getByRole("heading", { name: "Description" })).toBeVisible();
+
+    // Plain text should be rendered (without HTML tags)
+    await expect(page.getByText("This is a plain text description")).toBeVisible();
+  });
 });

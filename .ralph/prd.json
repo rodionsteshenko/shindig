@@ -60,9 +60,11 @@
         "E2E test in e2e/public-event.spec.ts verifies formatted description renders with correct HTML elements (e.g., bold text appears in a <strong> tag)"
       ],
       "priority": 1,
-      "status": "in_progress",
+      "status": "complete",
       "phase": 3,
-      "startedAt": "2026-02-18T07:44:06.073314"
+      "startedAt": "2026-02-18T07:44:06.073314",
+      "actualDuration": 558.1360468864441,
+      "iterationNumber": 3
     },
     {
       "id": "US-004",
@@ -76,8 +78,9 @@
         "E2E tests continue to pass (npm test)"
       ],
       "priority": 2,
-      "status": "incomplete",
-      "phase": 3
+      "status": "in_progress",
+      "phase": 3,
+      "startedAt": "2026-02-18T07:53:34.399513"
     }
   ],
   "branchName": "main",
@@ -89,9 +92,9 @@
   },
   "metadata": {
     "createdAt": "2026-02-18T11:52:05.457Z",
-    "lastUpdatedAt": "2026-02-18T07:44:06.073345",
+    "lastUpdatedAt": "2026-02-18T07:53:34.399532",
     "totalStories": 4,
-    "completedStories": 2,
-    "currentIteration": 2
+    "completedStories": 3,
+    "currentIteration": 3
   }
 }
