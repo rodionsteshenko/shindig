@@ -153,21 +153,26 @@ Guidelines:
 - Include E2E test criteria where appropriate
 - Reference existing file paths and patterns from the Shindig codebase (src/app/ for routes, src/components/ for UI, src/lib/ for utilities)`;
 
-  const escapedPrompt = prompt.replace(/"/g, '\\"').replace(/\n/g, "\\n");
+  // Write prompt to temp file to avoid shell escaping issues
+  const promptFile = join(tmpdir(), `shindig-prompt-${issue.number}-${Date.now()}.txt`);
+  writeFileSync(promptFile, prompt);
 
   let result: string;
   try {
     result = execSync(
-      `claude --print --dangerously-skip-permissions -p "${escapedPrompt}"`,
+      `cat "${promptFile}" | claude --print --dangerously-skip-permissions`,
       {
         encoding: "utf-8",
         maxBuffer: 1024 * 1024,
         env: cleanEnv,
+        shell: "/bin/bash",
       }
     ).trim();
   } catch (err) {
     log(`Claude CLI failed for issue #${issue.number}: ${err instanceof Error ? err.message : String(err)}`);
     return null;
+  } finally {
+    try { unlinkSync(promptFile); } catch { /* ignore */ }
   }
 
   // Strip markdown fences if present
@@ -181,6 +186,7 @@ Guidelines:
     prd = JSON.parse(cleaned);
   } catch {
     log(`Failed to parse generated PRD JSON for issue #${issue.number}`);
+    log(`Raw output: ${result.substring(0, 200)}`);
     return null;
   }
 
@@ -409,7 +415,7 @@ async function runPipeline() {
   // Step 4: Pick the next queued feature (via GitHub Issues)
   log("Step 4: Picking next queued feature...");
 
-  const queuedIssues = ghIssueList("pipeline:queued", 1);
+  const queuedIssues = ghIssueList("pipeline:queued", 20);
 
   if (queuedIssues.length === 0) {
     log("No queued features — nothing to implement.");
@@ -417,16 +423,27 @@ async function runPipeline() {
     return;
   }
 
-  const next = queuedIssues[0];
-  let prd = parsePrdFromBody(next.body);
+  let next: GitHubIssue | null = null;
+  let prd: Record<string, unknown> | null = null;
 
-  if (!prd) {
-    log(`Issue #${next.number} "${next.title}" has no parseable PRD — generating inline...`);
-    prd = generatePrdForIssue(next);
+  for (const candidate of queuedIssues) {
+    prd = parsePrdFromBody(candidate.body);
+
+    if (!prd) {
+      log(`Issue #${candidate.number} "${candidate.title}" has no parseable PRD — generating inline...`);
+      prd = generatePrdForIssue(candidate);
+    }
+
+    if (prd) {
+      next = candidate;
+      break;
+    }
+
+    log(`Issue #${candidate.number} "${candidate.title}" — PRD generation failed, trying next...`);
   }
 
-  if (!prd) {
-    log(`Issue #${next.number} "${next.title}" — PRD generation failed, skipping`);
+  if (!next || !prd) {
+    log("No queued features with valid PRDs — nothing to implement.");
     log("=== Pipeline run complete ===");
     return;
   }
