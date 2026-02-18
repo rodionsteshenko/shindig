@@ -4,8 +4,8 @@ import { success, error, rateLimitError, sanitizeError } from "@/lib/apiResponse
 import { emailSendLimiter } from "@/lib/rateLimit";
 import { getResendClient } from "@/lib/resend";
 import { invitationEmail } from "@/lib/emailTemplates";
-import { formatDate, formatTime } from "@/lib/utils";
-import type { Event, Guest } from "@/lib/types";
+import { formatDate, formatTime, stripHtml } from "@/lib/utils";
+import type { Event, Guest, User } from "@/lib/types";
 
 /**
  * UUID validation regex
@@ -60,6 +60,15 @@ export async function POST(
   if (eventError || !event) {
     return error("Event not found", 404);
   }
+
+  // Fetch host's display name from users table
+  const { data: hostUser } = await adminClient
+    .from("users")
+    .select("display_name, email")
+    .eq("id", auth.user_id)
+    .single<Pick<User, "display_name" | "email">>();
+
+  const hostName = hostUser?.display_name || hostUser?.email?.split("@")[0] || "The host";
 
   // Check for Resend client
   const resend = getResendClient();
@@ -129,6 +138,9 @@ export async function POST(
       eventDate: formatDate(event.start_time),
       eventTime: formatTime(event.start_time),
       eventLocation: event.location,
+      eventDescription: event.description ? stripHtml(event.description) : null,
+      coverImageUrl: event.cover_image_url,
+      hostName,
       rsvpUrl: `${origin}/rsvp/${guest.rsvp_token}`,
     });
 
@@ -138,6 +150,7 @@ export async function POST(
         to: guest.email,
         subject: email.subject,
         html: email.html,
+        text: email.text,
       });
 
       // Update invited_at timestamp

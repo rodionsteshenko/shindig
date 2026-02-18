@@ -13,7 +13,11 @@ interface InviteEmailData {
   rsvpUrl: string;
 }
 
-export function invitationEmail(data: InviteEmailData): { subject: string; html: string } {
+export function invitationEmail(data: InviteEmailData): {
+  subject: string;
+  html: string;
+  text: string;
+} {
   const result = renderInvitation({
     eventTitle: data.eventTitle,
     eventDate: data.eventDate,
@@ -30,6 +34,7 @@ export function invitationEmail(data: InviteEmailData): { subject: string; html:
   return {
     subject: result.subject,
     html: result.html,
+    text: result.text,
   };
 }
 

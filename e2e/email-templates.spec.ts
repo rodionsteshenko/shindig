@@ -6,6 +6,8 @@ import {
   getInvitationSubject,
   type InvitationEmailProps,
 } from "../src/lib/email-templates";
+import { invitationEmail } from "../src/lib/emailTemplates";
+import { stripHtml } from "../src/lib/utils";
 
 /**
  * E2E tests for email templates
@@ -288,5 +290,145 @@ test.describe("Email Template Module", () => {
       const html = renderInvitationHtml(props);
       expect(html).toContain("John&#039;s 30th &amp; Mary&#039;s B-Day!");
     });
+  });
+});
+
+test.describe("invitationEmail wrapper", () => {
+  const wrapperProps = {
+    guestName: "John Doe",
+    eventTitle: "Summer Beach Party",
+    eventDate: "Saturday, July 15, 2025",
+    eventTime: "3:00 PM",
+    eventLocation: "123 Ocean Drive",
+    eventDescription: "Join us for fun at the beach!",
+    coverImageUrl: "https://example.com/cover.jpg",
+    hostName: "Jane Smith",
+    rsvpUrl: "https://shindig.app/rsvp/abc123",
+    calendarUrl: "https://calendar.google.com/event?id=xyz",
+  };
+
+  test("returns subject, html, and text fields", () => {
+    const result = invitationEmail(wrapperProps);
+    expect(result).toHaveProperty("subject");
+    expect(result).toHaveProperty("html");
+    expect(result).toHaveProperty("text");
+  });
+
+  test("subject follows correct format", () => {
+    const result = invitationEmail(wrapperProps);
+    expect(result.subject).toBe("You're invited to Summer Beach Party!");
+  });
+
+  test("html contains event details", () => {
+    const result = invitationEmail(wrapperProps);
+    expect(result.html).toContain("Summer Beach Party");
+    expect(result.html).toContain("Saturday, July 15, 2025");
+    expect(result.html).toContain("Jane Smith");
+    expect(result.html).toContain("https://shindig.app/rsvp/abc123");
+  });
+
+  test("text contains event details", () => {
+    const result = invitationEmail(wrapperProps);
+    expect(result.text).toContain("SUMMER BEACH PARTY");
+    expect(result.text).toContain("Date: Saturday, July 15, 2025");
+    expect(result.text).toContain("https://shindig.app/rsvp/abc123");
+  });
+
+  test("includes cover image URL when provided", () => {
+    const result = invitationEmail(wrapperProps);
+    expect(result.html).toContain("https://example.com/cover.jpg");
+  });
+
+  test("handles null optional fields", () => {
+    const minimalProps = {
+      guestName: "Guest",
+      eventTitle: "Test Event",
+      eventDate: "Jan 1, 2025",
+      eventTime: "12:00 PM",
+      rsvpUrl: "https://shindig.app/rsvp/test",
+    };
+    const result = invitationEmail(minimalProps);
+    expect(result.subject).toBe("You're invited to Test Event!");
+    expect(result.html).toContain("Test Event");
+    expect(result.text).toContain("TEST EVENT");
+  });
+
+  test("uses default host name when not provided", () => {
+    const propsWithoutHost = { ...wrapperProps, hostName: undefined };
+    const result = invitationEmail(propsWithoutHost);
+    expect(result.html).toContain("The host");
+  });
+});
+
+test.describe("stripHtml utility", () => {
+  test("strips basic HTML tags", () => {
+    const html = "<p>Hello <b>world</b></p>";
+    const result = stripHtml(html);
+    expect(result).toBe("Hello world");
+  });
+
+  test("converts br tags to newlines", () => {
+    const html = "Line 1<br>Line 2<br/>Line 3";
+    const result = stripHtml(html);
+    expect(result).toBe("Line 1\nLine 2\nLine 3");
+  });
+
+  test("converts paragraph endings to double newlines", () => {
+    const html = "<p>Para 1</p><p>Para 2</p>";
+    const result = stripHtml(html);
+    expect(result).toBe("Para 1\n\nPara 2");
+  });
+
+  test("converts list items with bullets", () => {
+    const html = "<ul><li>Item 1</li><li>Item 2</li></ul>";
+    const result = stripHtml(html);
+    expect(result).toContain("• Item 1");
+    expect(result).toContain("• Item 2");
+  });
+
+  test("decodes HTML entities", () => {
+    const html = "Tom &amp; Jerry &quot;quoted&quot; &lt;tag&gt;";
+    const result = stripHtml(html);
+    expect(result).toBe('Tom & Jerry "quoted" <tag>');
+  });
+
+  test("handles nbsp entities", () => {
+    const html = "Hello&nbsp;World";
+    const result = stripHtml(html);
+    expect(result).toBe("Hello World");
+  });
+
+  test("collapses multiple newlines", () => {
+    const html = "<p>Para 1</p><p></p><p></p><p>Para 2</p>";
+    const result = stripHtml(html);
+    // Should not have more than 2 consecutive newlines
+    expect(result).not.toMatch(/\n{3,}/);
+  });
+
+  test("trims whitespace", () => {
+    const html = "  <p>Hello</p>  ";
+    const result = stripHtml(html);
+    expect(result).toBe("Hello");
+  });
+
+  test("handles empty string", () => {
+    const result = stripHtml("");
+    expect(result).toBe("");
+  });
+
+  test("handles plain text without HTML", () => {
+    const text = "Just plain text";
+    const result = stripHtml(text);
+    expect(result).toBe("Just plain text");
+  });
+
+  test("handles rich text editor output", () => {
+    const richTextHtml = `<p>Welcome to our event!</p><p>We're excited to have you join us for:</p><ul><li>Food and drinks</li><li>Live music</li><li>Great company</li></ul><p>See you there!</p>`;
+    const result = stripHtml(richTextHtml);
+    expect(result).toContain("Welcome to our event!");
+    expect(result).toContain("• Food and drinks");
+    expect(result).toContain("See you there!");
+    // Should not contain any HTML tags
+    expect(result).not.toMatch(/<[^>]+>/);
   });
 });

@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getResendClient } from "@/lib/resend";
 import { invitationEmail } from "@/lib/emailTemplates";
-import { formatDate, formatTime } from "@/lib/utils";
+import { formatDate, formatTime, stripHtml } from "@/lib/utils";
 import { emailSendLimiter } from "@/lib/rateLimit";
 import { sanitizeError } from "@/lib/apiResponse";
-import type { Event, Guest } from "@/lib/types";
+import type { Event, Guest, User } from "@/lib/types";
 
 export async function POST(
   request: Request,
@@ -39,6 +39,15 @@ export async function POST(
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
+
+  // Fetch host's display name from users table
+  const { data: hostUser } = await supabase
+    .from("users")
+    .select("display_name")
+    .eq("id", user.id)
+    .single<Pick<User, "display_name">>();
+
+  const hostName = hostUser?.display_name || user.email?.split("@")[0] || "The host";
 
   const resend = getResendClient();
   if (!resend) {
@@ -80,6 +89,9 @@ export async function POST(
       eventDate: formatDate(e.start_time),
       eventTime: formatTime(e.start_time),
       eventLocation: e.location,
+      eventDescription: e.description ? stripHtml(e.description) : null,
+      coverImageUrl: e.cover_image_url,
+      hostName,
       rsvpUrl: `${origin}/rsvp/${guest.rsvp_token}`,
     });
 
@@ -89,6 +101,7 @@ export async function POST(
         to: guest.email,
         subject: email.subject,
         html: email.html,
+        text: email.text,
       });
 
       await supabase
