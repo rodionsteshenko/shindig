@@ -11,6 +11,21 @@ test.describe("Event Creation", () => {
     await page.waitForURL("**/login**");
   });
 
+  test("shows rich text editor for description field", async ({ page }) => {
+    await loginAsTestUser(page);
+    await page.goto("/create");
+
+    // Verify the rich text editor toolbar is present
+    await expect(page.getByRole("button", { name: "Toggle bold" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Toggle italic" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Toggle heading 2" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Toggle bullet list" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Toggle link" })).toBeVisible();
+
+    // Verify the editor content area is present (ProseMirror class from TipTap)
+    await expect(page.locator(".ProseMirror")).toBeVisible();
+  });
+
   test("can submit event form and redirect to dashboard", async ({ page }) => {
     await loginAsTestUser(page);
     await page.goto("/create");
@@ -23,7 +38,9 @@ test.describe("Event Creation", () => {
     const dateStr = tomorrow.toISOString().slice(0, 16);
     await page.getByLabel(/Start Date/i).fill(dateStr);
 
-    await page.getByLabel(/Description/i).fill("A test event created by E2E tests");
+    // Fill description using rich text editor (click into editor and type)
+    await page.locator(".ProseMirror").click();
+    await page.locator(".ProseMirror").fill("A test event created by E2E tests");
     await page.getByLabel(/Location \/ Address/i).fill("Test Venue");
 
     // Submit the form
@@ -122,8 +139,12 @@ test.describe("Event Creation", () => {
     const uniqueSlug = `e2e-test-${Date.now()}`;
     await page.getByLabel(/Custom URL/i).fill(uniqueSlug);
 
-    // Wait for the availability check (debounced)
-    await expect(page.getByText("Checking...")).toBeVisible();
+    // Wait for the availability check to complete - "Checking..." may flash briefly
+    // so we wait for either "Checking..." or "Available" to appear
+    await expect(
+      page.getByText("Available").or(page.getByText("Checking..."))
+    ).toBeVisible({ timeout: 5000 });
+    // Final state should be "Available"
     await expect(page.getByText("Available")).toBeVisible({ timeout: 5000 });
   });
 

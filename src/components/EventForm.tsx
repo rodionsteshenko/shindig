@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { coverPresets } from "@/lib/coverPresets";
 import CustomFieldBuilder, { type CustomFieldBuilderItem } from "./CustomFieldBuilder";
+import RichTextEditor from "./RichTextEditor";
 import type { Event, CustomField } from "@/lib/types";
 
 interface EventFormProps {
@@ -317,16 +318,14 @@ export default function EventForm({ event, initialCustomFields }: EventFormProps
 
       {/* Description */}
       <div>
-        <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+        <label id="description-label" className="block text-sm font-medium text-gray-700 mb-1">
           Description
         </label>
-        <textarea
-          id="description"
+        <RichTextEditor
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={4}
+          onChange={setDescription}
           placeholder="Tell guests what to expect..."
-          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-shindig-500 focus:border-transparent outline-none resize-y"
+          aria-labelledby="description-label"
         />
       </div>
 

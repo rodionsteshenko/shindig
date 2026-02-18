@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { generateSlug } from "@/lib/utils";
 import { validateEventInput, validateSlug, validateCustomFields, MAX_EVENTS_PER_ACCOUNT } from "@/lib/validation";
 import { sanitizeError } from "@/lib/apiResponse";
+import { sanitizeHtml } from "@/lib/sanitize";
 import type { CustomFieldConfig } from "@/lib/types";
 
 export async function POST(request: Request) {
@@ -75,13 +76,16 @@ export async function POST(request: Request) {
     slug = generateSlug(body.title);
   }
 
+  // Sanitize HTML description to prevent XSS
+  const sanitizedDescription = sanitizeHtml(body.description);
+
   try {
     const { data, error } = await supabase
       .from("events")
       .insert({
         host_id: user.id,
         title: body.title,
-        description: body.description,
+        description: sanitizedDescription,
         location: body.location,
         maps_url: body.maps_url,
         cover_image_url: body.cover_image_url,

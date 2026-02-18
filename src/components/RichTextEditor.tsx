@@ -10,6 +10,7 @@ interface RichTextEditorProps {
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  "aria-labelledby"?: string;
 }
 
 export default function RichTextEditor({
@@ -17,6 +18,7 @@ export default function RichTextEditor({
   onChange,
   placeholder = "Write something...",
   className = "",
+  "aria-labelledby": ariaLabelledBy,
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -38,6 +40,7 @@ export default function RichTextEditor({
       attributes: {
         class:
           "prose prose-sm max-w-none min-h-[120px] px-4 py-3 focus:outline-none",
+        ...(ariaLabelledBy && { "aria-labelledby": ariaLabelledBy }),
       },
     },
     onUpdate: ({ editor }) => {
