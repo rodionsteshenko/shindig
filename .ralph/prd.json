@@ -1,86 +1,61 @@
 {
   "project": "Shindig",
-  "description": "Add rich text editing for event descriptions, replacing the plain textarea with a WYSIWYG editor that supports formatting (bold, italic, lists, links, headings) and renders styled HTML on the public event page.",
+  "description": "Design and implement a beautiful, branded HTML email invitation template that hosts can send to guests, replacing plain-text emails with a visually appealing layout that includes event details, cover image, RSVP button, and calendar link.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Integrate a lightweight rich text editor component",
-      "description": "As a developer, I want a reusable rich text editor component so that it can be used in the event creation form and any future forms requiring formatted text input.",
+      "title": "Create a reusable React Email invitation template component",
+      "description": "As a developer, I want a reusable HTML email template built with React so that invitation emails render beautifully across all major email clients.",
       "acceptanceCriteria": [
-        "A new RichTextEditor component exists at src/components/RichTextEditor.tsx",
-        "Uses Tiptap (headless, built on ProseMirror) as the editor library \u2014 install @tiptap/react, @tiptap/starter-kit, and @tiptap/extension-link",
-        "Supports bold, italic, bullet list, ordered list, headings (H2, H3), and links",
-        "Includes a minimal formatting toolbar with icon buttons for each action",
-        "Component accepts value (HTML string) and onChange props for controlled usage",
-        "Component is marked 'use client' since it requires browser APIs",
-        "Toolbar buttons show active state when cursor is inside formatted text",
-        "TypeScript strict mode passes with no errors (npm run build)"
+        "A new email template module exists at `src/lib/email-templates/invitation.tsx` that exports a function returning an HTML string",
+        "The template accepts props: eventTitle, eventDate, eventTime, eventLocation, eventDescription (plain text excerpt), coverImageUrl (optional), rsvpUrl, calendarUrl (optional), hostName",
+        "The template uses inline CSS for maximum email client compatibility (no Tailwind classes in the email HTML)",
+        "The template includes the Shindig brand color (#7c3aed / purple-600) in the header and CTA button",
+        "The layout is responsive and renders correctly at 320px\u2013600px width (standard email viewport)",
+        "A prominent 'RSVP Now' call-to-action button links to the guest's unique RSVP URL",
+        "The template includes a plain-text fallback version exported as a separate function",
+        "TypeScript strict mode passes with no errors (`npm run build` succeeds)",
+        "A helper at `src/lib/email-templates/index.ts` re-exports all templates for clean imports"
       ],
       "priority": 1,
-      "status": "complete",
+      "status": "in_progress",
       "phase": 1,
-      "startedAt": "2026-02-18T06:52:20.037507",
-      "actualDuration": 2042.9266319274902,
-      "iterationNumber": 1
+      "startedAt": "2026-02-18T18:27:17.010597"
     },
     {
       "id": "US-002",
-      "title": "Use rich text editor in event creation form",
-      "description": "As an event host, I want to write a formatted description when creating an event so that I can highlight important details with bold text, lists, and links.",
+      "title": "Integrate the invitation template into the existing email sending flow",
+      "description": "As an event host, I want my guests to receive a beautifully designed invitation email when I send invitations so that the event feels professional and exciting.",
       "acceptanceCriteria": [
-        "The event creation form at src/app/create/ replaces the plain textarea for description with the RichTextEditor component",
-        "The description field stores HTML string in the Supabase events table description column (existing text column, no migration needed)",
-        "Form validation still requires a non-empty description before submission",
-        "The API route at src/app/api/events/ accepts and stores the HTML description",
-        "HTML is sanitized server-side before storage using DOMPurify (install isomorphic-dompurify) to strip script tags and dangerous attributes",
-        "Existing events with plain text descriptions continue to display correctly",
-        "TypeScript strict mode passes with no errors (npm run build)",
-        "E2E test in e2e/event-creation.spec.ts verifies the rich text editor renders on the create page"
+        "The existing invitation send logic in `src/app/api/` routes uses the new HTML template instead of plain text when sending via Resend",
+        "The Resend `send()` call includes both `html` (from the template) and `text` (plain-text fallback) fields",
+        "The email subject line follows the format: 'You're invited to {eventTitle}!'",
+        "The email 'from' address uses the configured Resend sender",
+        "Event cover image URL is passed to the template when the event has a cover image",
+        "The RSVP URL in the email correctly uses the guest's unique token: `/rsvp/{token}`",
+        "TypeScript strict mode passes with no errors (`npm run build` succeeds)"
       ],
       "priority": 1,
-      "status": "complete",
-      "phase": 2,
-      "startedAt": "2026-02-18T07:26:36.364253",
-      "actualDuration": 1039.1094980239868,
-      "iterationNumber": 2
+      "status": "incomplete",
+      "phase": 2
     },
     {
       "id": "US-003",
-      "title": "Render rich text description on public event page",
-      "description": "As an event guest, I want to see the formatted event description on the public event page so that I can easily read structured information about the event.",
+      "title": "Add an email preview on the host dashboard",
+      "description": "As an event host, I want to preview what the invitation email will look like before sending it so that I can verify the content and design.",
       "acceptanceCriteria": [
-        "The public event page at src/app/e/[slug]/ renders the description as styled HTML instead of plain text",
-        "HTML output is sanitized before rendering using DOMPurify to prevent XSS",
-        "Rendered HTML uses Tailwind prose classes (via @tailwindcss/typography plugin) for consistent typography styling",
-        "Install and configure @tailwindcss/typography in tailwind.config.ts if not already present",
-        "Bold, italic, lists, headings, and links render with appropriate visual styling",
-        "Links in the description open in a new tab with rel='noopener noreferrer'",
-        "Plain text descriptions (legacy events without HTML) still render correctly as paragraphs",
-        "TypeScript strict mode passes with no errors (npm run build)",
-        "E2E test in e2e/public-event.spec.ts verifies formatted description renders with correct HTML elements (e.g., bold text appears in a <strong> tag)"
-      ],
-      "priority": 1,
-      "status": "complete",
-      "phase": 3,
-      "startedAt": "2026-02-18T07:44:06.073314",
-      "actualDuration": 558.1360468864441,
-      "iterationNumber": 3
-    },
-    {
-      "id": "US-004",
-      "title": "Render rich text description on host dashboard",
-      "description": "As an event host, I want to see the formatted description on my dashboard event detail view so that I can verify how my description looks.",
-      "acceptanceCriteria": [
-        "The dashboard event detail view at src/app/dashboard/ renders the description as styled HTML using the same prose styling as the public page",
-        "HTML output is sanitized before rendering using DOMPurify",
-        "Reuses the same rendering approach (Tailwind prose classes) as the public event page for consistency",
-        "TypeScript strict mode passes with no errors (npm run build)",
-        "E2E tests continue to pass (npm test)"
+        "A 'Preview Invitation' button appears on the host dashboard event detail page",
+        "Clicking the button opens a modal or slide-over panel showing the rendered email template with the current event's data",
+        "The preview renders inside an iframe or sandboxed container to simulate email rendering",
+        "The preview is responsive \u2014 host can toggle between mobile (320px) and desktop (600px) widths",
+        "A 'Send Test Email' button in the preview sends the invitation to the host's own email address via a new API route `src/app/api/events/[id]/preview-email/route.ts`",
+        "The API route is auth-gated \u2014 only the event host can trigger it",
+        "TypeScript strict mode passes with no errors (`npm run build` succeeds)",
+        "E2E test in `e2e/email-preview.spec.ts` verifies: preview button renders on dashboard, modal opens with event title visible, mobile/desktop toggle works, and the send-test endpoint returns 200 for authenticated host and 401 for unauthenticated requests"
       ],
       "priority": 2,
-      "status": "in_progress",
-      "phase": 3,
-      "startedAt": "2026-02-18T07:53:34.399513"
+      "status": "incomplete",
+      "phase": 3
     }
   ],
   "branchName": "main",
@@ -91,10 +66,10 @@
     }
   },
   "metadata": {
-    "createdAt": "2026-02-18T11:52:05.457Z",
-    "lastUpdatedAt": "2026-02-18T07:53:34.399532",
-    "totalStories": 4,
-    "completedStories": 3,
-    "currentIteration": 3
+    "createdAt": "2026-02-18T13:24:19.751Z",
+    "lastUpdatedAt": "2026-02-18T18:27:17.010622",
+    "totalStories": 3,
+    "completedStories": 0,
+    "currentIteration": 1
   }
 }
