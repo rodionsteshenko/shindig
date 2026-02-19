@@ -8,6 +8,7 @@ import ExportCSVButton from "@/components/ExportCSVButton";
 import ActionButton from "@/components/ActionButton";
 import CustomFieldResults from "@/components/CustomFieldResults";
 import RichTextDisplay from "@/components/RichTextDisplay";
+import PreviewInvitationButton from "@/components/PreviewInvitationButton";
 import type { Event, Guest, CustomField, CustomFieldResponse } from "@/lib/types";
 
 interface Props {
@@ -135,6 +136,7 @@ export default async function EventDashboardPage({ params }: Props) {
       <section>
         <h2 className="text-lg font-semibold mb-3">Actions</h2>
         <div className="flex flex-wrap gap-3">
+          <PreviewInvitationButton eventId={e.id} eventTitle={e.title} />
           <ActionButton
             label="Send Invitations"
             endpoint={`/api/events/manage/${e.id}/invite`}
