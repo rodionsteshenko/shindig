@@ -6,6 +6,7 @@ import GuestList from "@/components/GuestList";
 import GuestForm from "@/components/GuestForm";
 import ExportCSVButton from "@/components/ExportCSVButton";
 import ActionButton from "@/components/ActionButton";
+import ReminderButton from "@/components/ReminderButton";
 import CustomFieldResults from "@/components/CustomFieldResults";
 import RichTextDisplay from "@/components/RichTextDisplay";
 import PreviewInvitationButton from "@/components/PreviewInvitationButton";
@@ -143,12 +144,7 @@ export default async function EventDashboardPage({ params }: Props) {
             disabled={guestList.length === 0}
             confirmMessage="Send email invitations to all guests?"
           />
-          <ActionButton
-            label="Send Reminders"
-            endpoint={`/api/events/manage/${e.id}/remind`}
-            disabled={!guestList.some((g) => g.rsvp_status === "pending")}
-            confirmMessage="Send reminders to guests who haven't responded?"
-          />
+          <ReminderButton eventId={e.id} guests={guestList} />
           <ActionButton
             label="Delete Event"
             endpoint={`/api/events/manage/${e.id}`}

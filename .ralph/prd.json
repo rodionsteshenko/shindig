@@ -37,9 +37,11 @@
         "E2E test verifies that after seeding a guest with reminded_at set, the dashboard guest list displays the reminded indicator"
       ],
       "priority": 2,
-      "status": "in_progress",
+      "status": "complete",
       "phase": 2,
-      "startedAt": "2026-02-23T20:37:46.482024"
+      "startedAt": "2026-02-23T20:37:46.482024",
+      "actualDuration": 313.889714717865,
+      "iterationNumber": 2
     },
     {
       "id": "US-003",
@@ -55,8 +57,9 @@
         "E2E test on the dashboard page verifies the reminder button shows the pending count and is disabled when no guests are pending"
       ],
       "priority": 3,
-      "status": "incomplete",
-      "phase": 3
+      "status": "in_progress",
+      "phase": 3,
+      "startedAt": "2026-02-23T20:43:12.701024"
     }
   ],
   "branchName": "main",
@@ -68,9 +71,9 @@
   },
   "metadata": {
     "createdAt": "2026-02-19T00:36:43.511Z",
-    "lastUpdatedAt": "2026-02-23T20:37:46.482037",
+    "lastUpdatedAt": "2026-02-23T20:43:12.701049",
     "totalStories": 3,
-    "completedStories": 1,
-    "currentIteration": 1
+    "completedStories": 2,
+    "currentIteration": 2
   }
 }

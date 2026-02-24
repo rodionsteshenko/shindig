@@ -197,4 +197,103 @@ test.describe("Event Dashboard", () => {
     const notRemindedRow = page.locator("tr").filter({ hasText: "Not Reminded Guest" });
     await expect(notRemindedRow.getByTestId("reminded-indicator")).not.toBeVisible();
   });
+
+  test("reminder button shows pending count and is disabled when no pending guests", async ({ page }) => {
+    await cleanupTestData();
+    const userId = await loginAsTestUser(page);
+    const event = await seedEvent(userId);
+
+    // No guests yet - button should be disabled
+    await page.goto(`/dashboard/${event.id}`);
+    const reminderBtn = page.getByTestId("send-reminders-button");
+    await expect(reminderBtn).toBeVisible();
+    await expect(reminderBtn).toHaveText("Send Reminders");
+    await expect(reminderBtn).toBeDisabled();
+  });
+
+  test("reminder button shows count of pending guests with email", async ({ page }) => {
+    await cleanupTestData();
+    const userId = await loginAsTestUser(page);
+    const event = await seedEvent(userId);
+
+    // Seed 3 pending guests with emails
+    await seedGuest(event.id, {
+      name: "Guest One",
+      email: "guest1@shindig.test",
+      rsvp_status: "pending",
+    });
+    await seedGuest(event.id, {
+      name: "Guest Two",
+      email: "guest2@shindig.test",
+      rsvp_status: "pending",
+    });
+    await seedGuest(event.id, {
+      name: "Guest Three",
+      email: "guest3@shindig.test",
+      rsvp_status: "pending",
+    });
+
+    // Seed a pending guest WITHOUT email - should not be counted
+    await seedGuest(event.id, {
+      name: "No Email Guest",
+      email: null,
+      rsvp_status: "pending",
+    });
+
+    // Seed a guest who already responded - should not be counted
+    await seedGuest(event.id, {
+      name: "Responded Guest",
+      email: "responded@shindig.test",
+      rsvp_status: "going",
+    });
+
+    await page.goto(`/dashboard/${event.id}`);
+    const reminderBtn = page.getByTestId("send-reminders-button");
+    await expect(reminderBtn).toBeVisible();
+    await expect(reminderBtn).toHaveText("Send Reminders (3)");
+    await expect(reminderBtn).toBeEnabled();
+  });
+
+  test("reminder button opens confirmation dialog and shows guest list", async ({ page }) => {
+    await cleanupTestData();
+    const userId = await loginAsTestUser(page);
+    const event = await seedEvent(userId);
+
+    // Seed 2 pending guests with emails
+    await seedGuest(event.id, {
+      name: "Alice Smith",
+      email: "alice@shindig.test",
+      rsvp_status: "pending",
+    });
+    await seedGuest(event.id, {
+      name: "Bob Jones",
+      email: "bob@shindig.test",
+      rsvp_status: "pending",
+    });
+
+    await page.goto(`/dashboard/${event.id}`);
+
+    // Click the reminder button
+    const reminderBtn = page.getByTestId("send-reminders-button");
+    await reminderBtn.click();
+
+    // Confirmation dialog should appear
+    const dialog = page.getByTestId("confirm-dialog");
+    await expect(dialog).toBeVisible();
+
+    // Dialog should show count in the message
+    await expect(dialog.getByText(/Send reminder emails to 2 guests/)).toBeVisible();
+
+    // Dialog should show guest names
+    await expect(dialog.getByText(/Alice Smith/)).toBeVisible();
+    await expect(dialog.getByText(/Bob Jones/)).toBeVisible();
+
+    // Dialog should have Send and Cancel buttons
+    await expect(page.getByTestId("confirm-dialog-confirm")).toHaveText("Send");
+    await expect(page.getByTestId("confirm-dialog-cancel")).toHaveText("Cancel");
+
+    // Cancel should close the dialog
+    await page.getByTestId("confirm-dialog-cancel").click();
+    await expect(dialog).not.toBeVisible();
+  });
 });
