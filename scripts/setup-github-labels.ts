@@ -19,6 +19,7 @@ const LABELS: { name: string; color: string; description: string }[] = [
   // Type
   { name: "type:feature", color: "a2eeef", description: "Feature request" },
   { name: "type:bug", color: "d73a4a", description: "Bug report" },
+  { name: "type:improvement", color: "7057ff", description: "Autonomous codebase improvement" },
   // Priority
   { name: "priority:critical", color: "b60205", description: "Critical priority" },
   { name: "priority:high", color: "d93f0b", description: "High priority" },

@@ -21,6 +21,7 @@ import { execSync, spawnSync } from "child_process";
 import { readFileSync, writeFileSync, existsSync, mkdirSync, unlinkSync } from "fs";
 import { join, resolve } from "path";
 import { tmpdir } from "os";
+import { findImprovement } from "./find-improvement";
 
 const ROOT = resolve(__dirname, "..");
 const PRD_PATH = resolve(ROOT, ".ralph", "prd.json");
@@ -417,35 +418,47 @@ async function runPipeline() {
 
   const queuedIssues = ghIssueList("pipeline:queued", 20);
 
-  if (queuedIssues.length === 0) {
-    log("No queued features — nothing to implement.");
-    log("=== Pipeline run complete ===");
-    return;
-  }
-
   let next: GitHubIssue | null = null;
   let prd: Record<string, unknown> | null = null;
 
-  for (const candidate of queuedIssues) {
-    prd = parsePrdFromBody(candidate.body);
+  if (queuedIssues.length === 0) {
+    log("No queued features — entering idle improvement mode...");
+    const improvement = await findImprovement();
+    if (!improvement) {
+      log("Could not identify an improvement task — exiting.");
+      log("=== Pipeline run complete ===");
+      return;
+    }
+    next = improvement.issue;
+    prd = improvement.prd;
+  } else {
+    for (const candidate of queuedIssues) {
+      prd = parsePrdFromBody(candidate.body);
 
-    if (!prd) {
-      log(`Issue #${candidate.number} "${candidate.title}" has no parseable PRD — generating inline...`);
-      prd = generatePrdForIssue(candidate);
+      if (!prd) {
+        log(`Issue #${candidate.number} "${candidate.title}" has no parseable PRD — generating inline...`);
+        prd = generatePrdForIssue(candidate);
+      }
+
+      if (prd) {
+        next = candidate;
+        break;
+      }
+
+      log(`Issue #${candidate.number} "${candidate.title}" — PRD generation failed, trying next...`);
     }
 
-    if (prd) {
-      next = candidate;
-      break;
+    if (!next || !prd) {
+      log("No queued features with valid PRDs — entering idle improvement mode...");
+      const improvement = await findImprovement();
+      if (!improvement) {
+        log("Could not identify an improvement task — exiting.");
+        log("=== Pipeline run complete ===");
+        return;
+      }
+      next = improvement.issue;
+      prd = improvement.prd;
     }
-
-    log(`Issue #${candidate.number} "${candidate.title}" — PRD generation failed, trying next...`);
-  }
-
-  if (!next || !prd) {
-    log("No queued features with valid PRDs — nothing to implement.");
-    log("=== Pipeline run complete ===");
-    return;
   }
 
   // Write PRD to .ralph/prd.json with Ralph-required metadata

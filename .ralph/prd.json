@@ -1,67 +1,59 @@
 {
   "project": "Shindig",
-  "description": "Design and implement a beautiful, branded HTML email invitation template that hosts can send to guests, replacing plain-text emails with a visually appealing layout that includes event details, cover image, RSVP button, and calendar link.",
+  "description": "Polish the existing one-click 'Send Reminders' feature on the host dashboard so it uses a branded React Email template, tracks when each guest was last reminded, and provides clear inline UI feedback instead of browser-native dialogs.",
   "userStories": [
     {
       "id": "US-001",
-      "title": "Create a reusable React Email invitation template component",
-      "description": "As a developer, I want a reusable HTML email template built with React so that invitation emails render beautifully across all major email clients.",
+      "title": "Create a polished React Email reminder template",
+      "description": "As a host, I want reminder emails to look as professional as invitation emails so that guests take the reminder seriously and RSVP.",
       "acceptanceCriteria": [
-        "A new email template module exists at `src/lib/email-templates/invitation.tsx` that exports a function returning an HTML string",
-        "The template accepts props: eventTitle, eventDate, eventTime, eventLocation, eventDescription (plain text excerpt), coverImageUrl (optional), rsvpUrl, calendarUrl (optional), hostName",
-        "The template uses inline CSS for maximum email client compatibility (no Tailwind classes in the email HTML)",
-        "The template includes the Shindig brand color (#7c3aed / purple-600) in the header and CTA button",
-        "The layout is responsive and renders correctly at 320px\u2013600px width (standard email viewport)",
-        "A prominent 'RSVP Now' call-to-action button links to the guest's unique RSVP URL",
-        "The template includes a plain-text fallback version exported as a separate function",
-        "TypeScript strict mode passes with no errors (`npm run build` succeeds)",
-        "A helper at `src/lib/email-templates/index.ts` re-exports all templates for clean imports"
+        "A new React Email component exists at src/lib/email-templates/reminder.tsx exporting renderReminderHtml and renderReminderText (following the pattern in src/lib/email-templates/invitation.tsx)",
+        "The reminder template includes: guest name, event title, date, time, location, cover image (if set), host name, and a prominent 'RSVP Now' CTA button linking to /rsvp/[token]",
+        "The template uses the Shindig brand color (#7c3aed) and the same table-based layout as the invitation template for email-client compatibility",
+        "The subject line is 'Reminder: RSVP for {eventTitle}'",
+        "A plain-text version is generated alongside the HTML version",
+        "The remind API route at src/app/api/events/manage/[id]/remind/route.ts is updated to use the new template instead of the inline HTML from src/lib/emailTemplates.ts",
+        "TypeScript strict-mode typecheck passes (npm run build)",
+        "E2E test in e2e/api-invite.spec.ts verifies the remind endpoint still returns 401 without auth"
       ],
       "priority": 1,
-      "status": "complete",
+      "status": "in_progress",
       "phase": 1,
-      "startedAt": "2026-02-18T18:27:17.010597",
-      "actualDuration": 891.3842971324921,
-      "iterationNumber": 2
+      "startedAt": "2026-02-23T20:14:50.419753"
     },
     {
       "id": "US-002",
-      "title": "Integrate the invitation template into the existing email sending flow",
-      "description": "As an event host, I want my guests to receive a beautifully designed invitation email when I send invitations so that the event feels professional and exciting.",
+      "title": "Track when each guest was last reminded",
+      "description": "As a host, I want the system to record when a reminder was last sent to each guest so that I can see who has been reminded and avoid spamming guests with duplicate reminders.",
       "acceptanceCriteria": [
-        "The existing invitation send logic in `src/app/api/` routes uses the new HTML template instead of plain text when sending via Resend",
-        "The Resend `send()` call includes both `html` (from the template) and `text` (plain-text fallback) fields",
-        "The email subject line follows the format: 'You're invited to {eventTitle}!'",
-        "The email 'from' address uses the configured Resend sender",
-        "Event cover image URL is passed to the template when the event has a cover image",
-        "The RSVP URL in the email correctly uses the guest's unique token: `/rsvp/{token}`",
-        "TypeScript strict mode passes with no errors (`npm run build` succeeds)"
+        "A new migration adds a nullable reminded_at timestamptz column to the guests table (default null)",
+        "The remind API route (src/app/api/events/manage/[id]/remind/route.ts) sets reminded_at = now() for each guest after successfully sending their reminder email",
+        "The v1 remind API route (src/app/api/v1/events/[id]/remind/route.ts) also sets reminded_at on success",
+        "The Guest type in src/lib/types.ts includes the reminded_at field as string | null",
+        "The GuestList component (src/components/GuestList.tsx) shows a 'Reminded' indicator (e.g. relative timestamp or dot) on guests whose reminded_at is set, visible in the Pending filter tab",
+        "TypeScript strict-mode typecheck passes (npm run build)",
+        "E2E test verifies that after seeding a guest with reminded_at set, the dashboard guest list displays the reminded indicator"
       ],
-      "priority": 1,
-      "status": "complete",
-      "phase": 2,
-      "startedAt": "2026-02-18T18:42:24.485298",
-      "actualDuration": 989.7004270553589,
-      "iterationNumber": 3
+      "priority": 2,
+      "status": "incomplete",
+      "phase": 2
     },
     {
       "id": "US-003",
-      "title": "Add an email preview on the host dashboard",
-      "description": "As an event host, I want to preview what the invitation email will look like before sending it so that I can verify the content and design.",
+      "title": "Improve dashboard remind UX with inline confirmation and feedback",
+      "description": "As a host, I want to see how many guests will be reminded before confirming, and receive clear inline feedback after sending, so that the one-click experience feels polished and trustworthy.",
       "acceptanceCriteria": [
-        "A 'Preview Invitation' button appears on the host dashboard event detail page",
-        "Clicking the button opens a modal or slide-over panel showing the rendered email template with the current event's data",
-        "The preview renders inside an iframe or sandboxed container to simulate email rendering",
-        "The preview is responsive \u2014 host can toggle between mobile (320px) and desktop (600px) widths",
-        "A 'Send Test Email' button in the preview sends the invitation to the host's own email address via a new API route `src/app/api/events/[id]/preview-email/route.ts`",
-        "The API route is auth-gated \u2014 only the event host can trigger it",
-        "TypeScript strict mode passes with no errors (`npm run build` succeeds)",
-        "E2E test in `e2e/email-preview.spec.ts` verifies: preview button renders on dashboard, modal opens with event title visible, mobile/desktop toggle works, and the send-test endpoint returns 200 for authenticated host and 401 for unauthenticated requests"
+        "The 'Send Reminders' ActionButton on the dashboard (src/app/dashboard/[id]/page.tsx) displays the count of pending guests with email addresses, e.g. 'Send Reminders (5)'",
+        "Clicking the button opens a styled confirmation dialog (not window.confirm) showing the count and a list summary, with 'Send' and 'Cancel' buttons",
+        "After sending, an inline toast or banner replaces window.alert, showing 'Sent X reminders' on success or 'Sent X, Y failed' if some failed, auto-dismissing after 5 seconds",
+        "The button shows a loading/spinner state while the API request is in flight",
+        "The button remains disabled when there are no pending guests with email addresses",
+        "TypeScript strict-mode typecheck passes (npm run build)",
+        "E2E test on the dashboard page verifies the reminder button shows the pending count and is disabled when no guests are pending"
       ],
-      "priority": 2,
-      "status": "in_progress",
-      "phase": 3,
-      "startedAt": "2026-02-18T18:59:07.218088"
+      "priority": 3,
+      "status": "incomplete",
+      "phase": 3
     }
   ],
   "branchName": "main",
@@ -72,10 +64,10 @@
     }
   },
   "metadata": {
-    "createdAt": "2026-02-18T13:24:19.751Z",
-    "lastUpdatedAt": "2026-02-18T18:59:07.218112",
+    "createdAt": "2026-02-19T00:36:43.511Z",
+    "lastUpdatedAt": "2026-02-23T20:14:50.419786",
     "totalStories": 3,
-    "completedStories": 2,
-    "currentIteration": 3
+    "completedStories": 0,
+    "currentIteration": 1
   }
 }

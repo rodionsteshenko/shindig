@@ -48,6 +48,14 @@ export async function POST(
     );
   }
 
+  // Fetch host's display name
+  const { data: hostProfile } = await supabase
+    .from("users")
+    .select("display_name")
+    .eq("id", user.id)
+    .single();
+  const hostName = hostProfile?.display_name || "The host";
+
   // Only remind guests who haven't responded
   const { data: guests } = await supabase
     .from("guests")
@@ -73,6 +81,9 @@ export async function POST(
       eventTitle: e.title,
       eventDate: formatDate(e.start_time),
       eventTime: formatTime(e.start_time),
+      eventLocation: e.location,
+      coverImageUrl: e.cover_image_url,
+      hostName,
       rsvpUrl: `${origin}/rsvp/${guest.rsvp_token}`,
     });
 
@@ -82,6 +93,7 @@ export async function POST(
         to: guest.email,
         subject: email.subject,
         html: email.html,
+        text: email.text,
       });
       sent++;
     } catch (err) {
