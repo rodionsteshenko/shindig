@@ -17,9 +17,11 @@
         "E2E tests in `e2e/` cover: adding a guest with a valid phone, rejecting an invalid phone, CSV import with mixed valid/invalid phones"
       ],
       "priority": 1,
-      "status": "in_progress",
+      "status": "complete",
       "phase": 1,
-      "startedAt": "2026-02-23T21:06:37.176273"
+      "startedAt": "2026-02-23T21:06:37.176273",
+      "actualDuration": 2279.0060329437256,
+      "iterationNumber": 1
     },
     {
       "id": "US-002",
@@ -38,8 +40,9 @@
         "E2E tests cover: inviting a phone-only guest triggers SMS path (mock Twilio in tests), inviting a guest with both email and phone sends email only"
       ],
       "priority": 2,
-      "status": "incomplete",
-      "phase": 2
+      "status": "in_progress",
+      "phase": 2,
+      "startedAt": "2026-02-23T21:44:50.685450"
     },
     {
       "id": "US-003",
@@ -68,9 +71,9 @@
   },
   "metadata": {
     "createdAt": "2026-02-24T02:06:20.541Z",
-    "lastUpdatedAt": "2026-02-23T21:06:37.176296",
+    "lastUpdatedAt": "2026-02-23T21:44:50.685466",
     "totalStories": 3,
-    "completedStories": 0,
+    "completedStories": 1,
     "currentIteration": 1
   }
 }

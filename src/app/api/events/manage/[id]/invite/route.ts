@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getResendClient } from "@/lib/resend";
+import { sendSms } from "@/lib/twilio";
 import { invitationEmail } from "@/lib/emailTemplates";
 import { formatDate, formatTime, stripHtml } from "@/lib/utils";
 import { emailSendLimiter } from "@/lib/rateLimit";
@@ -50,21 +51,16 @@ export async function POST(
   const hostName = hostUser?.display_name || user.email?.split("@")[0] || "The host";
 
   const resend = getResendClient();
-  if (!resend) {
-    return NextResponse.json(
-      { error: "Email not configured. Set RESEND_API_KEY to enable invitations." },
-      { status: 503 }
-    );
-  }
 
   const body = await request.json();
   const guestIds: string[] | undefined = body.guest_ids;
 
+  // Fetch all guests who have either email OR phone
   let query = supabase
     .from("guests")
     .select("*")
     .eq("event_id", id)
-    .not("email", "is", null);
+    .or("email.not.is.null,phone.not.is.null");
 
   if (guestIds) {
     query = query.in("id", guestIds);
@@ -72,49 +68,131 @@ export async function POST(
 
   const { data: guests } = await query;
   if (!guests || guests.length === 0) {
-    return NextResponse.json({ error: "No guests with email addresses" }, { status: 400 });
+    return NextResponse.json(
+      { error: "No guests with email or phone" },
+      { status: 400 }
+    );
+  }
+
+  // Split guests into email recipients and phone-only recipients
+  // Guests with both email and phone receive email only (to avoid duplicate notifications)
+  const emailGuests = (guests as Guest[]).filter((g) => g.email);
+  const phoneOnlyGuests = (guests as Guest[]).filter((g) => !g.email && g.phone);
+
+  // Check if we can send either channel
+  const canSendEmail = resend !== null;
+  const totalInvitable = emailGuests.length + phoneOnlyGuests.length;
+
+  if (totalInvitable === 0) {
+    return NextResponse.json(
+      { error: "No guests with email or phone" },
+      { status: 400 }
+    );
+  }
+
+  // If we have email guests but no email config, and no phone-only guests, error
+  if (emailGuests.length > 0 && !canSendEmail && phoneOnlyGuests.length === 0) {
+    return NextResponse.json(
+      { error: "Email not configured. Set RESEND_API_KEY to enable invitations." },
+      { status: 503 }
+    );
   }
 
   const e = event as Event;
   const origin = new URL(request.url).origin;
-  let sent = 0;
+  let emailsSent = 0;
+  let smsSent = 0;
   let failed = 0;
 
-  for (const guest of guests as Guest[]) {
-    if (!guest.email) continue;
+  // Send email invitations to guests with email
+  if (canSendEmail) {
+    for (const guest of emailGuests) {
+      const emailContent = invitationEmail({
+        guestName: guest.name,
+        eventTitle: e.title,
+        eventDate: formatDate(e.start_time),
+        eventTime: formatTime(e.start_time),
+        eventLocation: e.location,
+        eventDescription: e.description ? stripHtml(e.description) : null,
+        coverImageUrl: e.cover_image_url,
+        hostName,
+        rsvpUrl: `${origin}/rsvp/${guest.rsvp_token}`,
+      });
 
-    const email = invitationEmail({
+      try {
+        await resend.emails.send({
+          from: "Shindig <noreply@shindig.app>",
+          to: guest.email!,
+          subject: emailContent.subject,
+          html: emailContent.html,
+          text: emailContent.text,
+        });
+
+        await supabase
+          .from("guests")
+          .update({ invited_at: new Date().toISOString() })
+          .eq("id", guest.id);
+
+        emailsSent++;
+      } catch (err) {
+        console.error(`Failed to send email to ${guest.email}:`, sanitizeError(err));
+        failed++;
+      }
+    }
+  } else if (emailGuests.length > 0) {
+    // Email not configured, count these as failed
+    failed += emailGuests.length;
+    console.warn(`Email not configured, skipping ${emailGuests.length} email invitations`);
+  }
+
+  // Send SMS invitations to phone-only guests
+  for (const guest of phoneOnlyGuests) {
+    const rsvpUrl = `${origin}/rsvp/${guest.rsvp_token}`;
+    const smsBody = composeSmsInvitation({
       guestName: guest.name,
       eventTitle: e.title,
       eventDate: formatDate(e.start_time),
       eventTime: formatTime(e.start_time),
-      eventLocation: e.location,
-      eventDescription: e.description ? stripHtml(e.description) : null,
-      coverImageUrl: e.cover_image_url,
       hostName,
-      rsvpUrl: `${origin}/rsvp/${guest.rsvp_token}`,
+      rsvpUrl,
     });
 
-    try {
-      await resend.emails.send({
-        from: "Shindig <noreply@shindig.app>",
-        to: guest.email,
-        subject: email.subject,
-        html: email.html,
-        text: email.text,
-      });
+    const result = await sendSms(guest.phone!, smsBody);
 
+    if (result.success) {
       await supabase
         .from("guests")
         .update({ invited_at: new Date().toISOString() })
         .eq("id", guest.id);
 
-      sent++;
-    } catch (err) {
-      console.error(`Failed to send to ${guest.email}:`, sanitizeError(err));
+      smsSent++;
+    } else {
+      console.error(`Failed to send SMS to ${guest.phone}:`, result.error);
       failed++;
     }
   }
 
-  return NextResponse.json({ sent, failed });
+  return NextResponse.json({ emailsSent, smsSent, failed });
+}
+
+/**
+ * Compose SMS invitation message body.
+ * Kept concise to fit SMS character limits while including essential info.
+ */
+function composeSmsInvitation({
+  guestName,
+  eventTitle,
+  eventDate,
+  eventTime,
+  hostName,
+  rsvpUrl,
+}: {
+  guestName: string;
+  eventTitle: string;
+  eventDate: string;
+  eventTime: string;
+  hostName: string;
+  rsvpUrl: string;
+}): string {
+  return `Hi ${guestName}! You're invited to ${eventTitle} on ${eventDate} at ${eventTime}. ${hostName} would love to see you there. RSVP here: ${rsvpUrl}`;
 }

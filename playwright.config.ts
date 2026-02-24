@@ -29,6 +29,7 @@ export default defineConfig({
     env: {
       ...process.env,
       DISABLE_RATE_LIMIT: "true",
+      TWILIO_TEST_MODE: "true",
     },
   },
 });
