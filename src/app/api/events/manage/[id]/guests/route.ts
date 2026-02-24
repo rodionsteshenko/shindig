@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { validateGuestsArrayInput, MAX_GUESTS_PER_EVENT } from "@/lib/validation";
+import { validateGuestsArrayInput, MAX_GUESTS_PER_EVENT, type CountryCode } from "@/lib/validation";
 import { sanitizeError } from "@/lib/apiResponse";
+import { DEFAULT_COUNTRY } from "@/lib/phone";
 
 export async function GET(
   _request: Request,
@@ -70,8 +71,11 @@ export async function POST(
 
   const body = await request.json();
 
-  // Validate guest input
-  const validation = validateGuestsArrayInput(body);
+  // Get default country for phone normalization (optional)
+  const defaultCountry: CountryCode = body.defaultCountry || DEFAULT_COUNTRY;
+
+  // Validate guest input (also normalizes phone numbers to E.164)
+  const validation = validateGuestsArrayInput(body, defaultCountry);
   if (!validation.valid) {
     return NextResponse.json({ error: "Validation failed", errors: validation.errors }, { status: 400 });
   }
@@ -82,7 +86,8 @@ export async function POST(
     .select("*", { count: "exact", head: true })
     .eq("event_id", id);
 
-  const newCount = (count ?? 0) + body.guests.length;
+  const normalizedGuests = validation.normalizedGuests ?? [];
+  const newCount = (count ?? 0) + normalizedGuests.length;
   if (newCount > MAX_GUESTS_PER_EVENT) {
     return NextResponse.json(
       { error: `Cannot exceed ${MAX_GUESTS_PER_EVENT} guests per event (currently ${count})` },
@@ -90,11 +95,12 @@ export async function POST(
     );
   }
 
-  const guestsToInsert = body.guests.map((g: { name: string; email: string; phone?: string }) => ({
+  // Use normalized guest data (phone is already in E.164 format)
+  const guestsToInsert = normalizedGuests.map((g) => ({
     event_id: id,
     name: g.name,
-    email: g.email,
-    phone: g.phone || null,
+    email: g.email || null,
+    phone: g.phone,
   }));
 
   try {

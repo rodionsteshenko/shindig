@@ -137,7 +137,7 @@ export async function PUT(
     return error("Request body must be an object", 400);
   }
 
-  // Validate input
+  // Validate input (also normalizes phone to E.164)
   const validation = validateGuestInput(body as Record<string, unknown>);
   if (!validation.valid) {
     return validationError(validation.errors);
@@ -159,13 +159,13 @@ export async function PUT(
       return error("Guest not found", 404);
     }
 
-    // Update the guest
+    // Update the guest (phone is normalized to E.164)
     const { data: guest, error: dbError } = await adminClient
       .from("guests")
       .update({
         name: input.name,
         email: input.email ?? null,
-        phone: input.phone ?? null,
+        phone: validation.normalizedPhone ?? null,
       })
       .eq("id", guestId)
       .eq("event_id", eventId)

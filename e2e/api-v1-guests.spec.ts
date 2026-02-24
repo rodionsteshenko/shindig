@@ -201,6 +201,9 @@ test.describe("POST /api/v1/events/[id]/guests (Add Guest)", () => {
     phone: "+1 555-123-4567",
   };
 
+  // Expected normalized E.164 format
+  const expectedNormalizedPhone = "+15551234567";
+
   test("requires authentication", async ({ request }) => {
     const event = await seedEvent(testUserId, { title: "E2E Test Add Guest Auth" });
     const response = await request.post(`/api/v1/events/${event.id}/guests`, {
@@ -223,7 +226,8 @@ test.describe("POST /api/v1/events/[id]/guests (Add Guest)", () => {
     expect(body.error).toBeNull();
     expect(body.data.name).toBe(validGuestData.name);
     expect(body.data.email).toBe(validGuestData.email);
-    expect(body.data.phone).toBe(validGuestData.phone);
+    // Phone is normalized to E.164 format
+    expect(body.data.phone).toBe(expectedNormalizedPhone);
     expect(body.data.event_id).toBe(event.id);
     expect(body.data.rsvp_status).toBe("pending");
     expect(body.data.rsvp_token).toBeDefined();
@@ -413,6 +417,9 @@ test.describe("PUT /api/v1/events/[id]/guests/[guestId] (Update Guest)", () => {
     phone: "+1 555-999-8888",
   };
 
+  // Expected normalized E.164 format for update
+  const expectedUpdatePhone = "+15559998888";
+
   test("requires authentication", async ({ request }) => {
     const event = await seedEvent(testUserId, { title: "E2E Test Update Guest Auth" });
     const guest = await seedGuest(event.id, { email: "updateauth@shindig.test" });
@@ -441,7 +448,8 @@ test.describe("PUT /api/v1/events/[id]/guests/[guestId] (Update Guest)", () => {
     expect(body.error).toBeNull();
     expect(body.data.name).toBe(updateData.name);
     expect(body.data.email).toBe(updateData.email);
-    expect(body.data.phone).toBe(updateData.phone);
+    // Phone is normalized to E.164 format
+    expect(body.data.phone).toBe(expectedUpdatePhone);
   });
 
   test("works with API key auth (guests:write scope)", async ({ request }) => {

@@ -1,18 +1,31 @@
 /**
- * Lightweight input validators — no external dependencies.
- * Each returns { valid: boolean, errors: Record<string, string> }
+ * Lightweight input validators.
+ * Each returns { valid: boolean, errors: Record<string, string>, data?: ... }
  */
+
+import { normalizePhone, type CountryCode, DEFAULT_COUNTRY } from "./phone";
 
 export const MAX_EVENTS_PER_ACCOUNT = 50;
 export const MAX_GUESTS_PER_EVENT = 500;
 
 type ValidationResult = { valid: boolean; errors: Record<string, string> };
 
+// Extended result type for guest validation that includes normalized phone
+type GuestValidationResult = ValidationResult & {
+  normalizedPhone?: string | null;
+};
+
+// Extended result type for guests array validation
+type GuestsArrayValidationResult = ValidationResult & {
+  normalizedGuests?: Array<{ name: string; email: string; phone: string | null }>;
+};
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const URL_RE = /^https?:\/\/.+/;
 const HTTPS_URL_RE = /^https:\/\/.+/;
-const PHONE_RE = /^[+\d][\d\s\-().]{6,20}$/;
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export type { CountryCode };
 
 function ok(): ValidationResult {
   return { valid: true, errors: {} };
@@ -80,8 +93,12 @@ export function validateEventInput(body: Record<string, unknown>): ValidationRes
   return Object.keys(errors).length ? fail(errors) : ok();
 }
 
-export function validateGuestInput(body: Record<string, unknown>): ValidationResult {
+export function validateGuestInput(
+  body: Record<string, unknown>,
+  defaultCountry: CountryCode = DEFAULT_COUNTRY
+): GuestValidationResult {
   const errors: Record<string, string> = {};
+  let normalizedPhone: string | null = null;
 
   if (!body.name || typeof body.name !== "string" || !body.name.trim()) {
     errors.name = "Name is required";
@@ -91,30 +108,50 @@ export function validateGuestInput(body: Record<string, unknown>): ValidationRes
     errors.email = "Invalid email format";
   }
 
-  if (body.phone != null && typeof body.phone === "string" && body.phone.trim() && !PHONE_RE.test(body.phone)) {
-    errors.phone = "Invalid phone format";
+  // Normalize phone to E.164 format if provided
+  if (body.phone != null && typeof body.phone === "string" && body.phone.trim()) {
+    normalizedPhone = normalizePhone(body.phone, defaultCountry);
+    if (normalizedPhone === null) {
+      errors.phone = "Invalid phone number. Please enter a valid phone with country code.";
+    }
   }
 
-  return Object.keys(errors).length ? fail(errors) : ok();
+  if (Object.keys(errors).length) {
+    return { valid: false, errors };
+  }
+
+  return { valid: true, errors: {}, normalizedPhone };
 }
 
-export function validateGuestsArrayInput(body: Record<string, unknown>): ValidationResult {
+export function validateGuestsArrayInput(
+  body: Record<string, unknown>,
+  defaultCountry: CountryCode = DEFAULT_COUNTRY
+): GuestsArrayValidationResult {
   if (!body.guests || !Array.isArray(body.guests) || body.guests.length === 0) {
-    return fail({ guests: "At least one guest is required" });
+    return { valid: false, errors: { guests: "At least one guest is required" } };
   }
 
+  const normalizedGuests: Array<{ name: string; email: string; phone: string | null }> = [];
+
   for (let i = 0; i < body.guests.length; i++) {
-    const result = validateGuestInput(body.guests[i]);
+    const guest = body.guests[i] as Record<string, unknown>;
+    const result = validateGuestInput(guest, defaultCountry);
     if (!result.valid) {
       const errors: Record<string, string> = {};
       for (const [k, v] of Object.entries(result.errors)) {
         errors[`guests[${i}].${k}`] = v;
       }
-      return fail(errors);
+      return { valid: false, errors };
     }
+
+    normalizedGuests.push({
+      name: (guest.name as string).trim(),
+      email: guest.email ? (guest.email as string).trim() : "",
+      phone: result.normalizedPhone ?? null,
+    });
   }
 
-  return ok();
+  return { valid: true, errors: {}, normalizedGuests };
 }
 
 const VALID_RSVP_STATUSES = ["going", "maybe", "declined"];

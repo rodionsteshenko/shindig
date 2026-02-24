@@ -224,7 +224,7 @@ export async function POST(
     return error("Request body must be an object", 400);
   }
 
-  // Validate input
+  // Validate input (also normalizes phone to E.164)
   const validation = validateGuestInput(body as Record<string, unknown>);
   if (!validation.valid) {
     return validationError(validation.errors);
@@ -250,7 +250,7 @@ export async function POST(
         event_id: eventId,
         name: input.name,
         email: input.email ?? null,
-        phone: input.phone ?? null,
+        phone: validation.normalizedPhone ?? null, // Use E.164 normalized phone
         rsvp_status: "pending",
         plus_one_count: 0,
         rsvp_token: generateRsvpToken(),

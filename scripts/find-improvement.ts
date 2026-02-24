@@ -2,25 +2,27 @@
  * Idle Improvement Finder
  *
  * When the pipeline has no queued features to implement, this script:
- *   1. Scans the src/ codebase for improvement opportunities (file sizes, structure)
- *   2. Checks recently completed improvements to avoid repeats
- *   3. Asks Claude to pick the most valuable improvement task
- *   4. Creates a GitHub Issue labeled pipeline:queued + type:improvement
- *   5. Returns the issue + PRD JSON for immediate execution
+ *   1. Takes screenshots of the live app (production URL or localhost:3000)
+ *   2. Scans the src/ codebase for structural improvement opportunities
+ *   3. Checks recently completed improvements to avoid repeats
+ *   4. Sends screenshots + code inventory to Claude (via Anthropic SDK) for visual analysis
+ *   5. Creates a GitHub Issue labeled pipeline:queued + type:improvement
+ *   6. Returns the issue + PRD JSON for immediate execution by Ralph
  *
  * Improvement categories: refactor/modularize, test coverage, UI/UX polish, TypeScript strictness
+ *
+ * Ralph (during implementation) also has Playwright MCP available via .mcp.json,
+ * so it can take its own before/after screenshots to visually verify changes.
  */
 
+import Anthropic from "@anthropic-ai/sdk";
+import { chromium } from "playwright";
 import { execSync, spawnSync } from "child_process";
-import { writeFileSync, unlinkSync } from "fs";
+import { writeFileSync, unlinkSync, mkdirSync, existsSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 
 const ROOT = process.cwd();
-
-// Clean env without CLAUDECODE so nested claude calls work
-const cleanEnv = { ...process.env };
-delete cleanEnv.CLAUDECODE;
 
 export interface GitHubIssue {
   number: number;
@@ -36,6 +38,93 @@ export interface ImprovementResult {
 function log(msg: string) {
   const ts = new Date().toISOString();
   console.log(`[${ts}] ${msg}`);
+}
+
+/** Get Anthropic API key — from env or macOS keychain (where Claude Code stores it) */
+function getAnthropicApiKey(): string {
+  if (process.env.ANTHROPIC_API_KEY) return process.env.ANTHROPIC_API_KEY;
+
+  try {
+    const key = execSync(
+      "security find-generic-password -s anthropic -w 2>/dev/null",
+      { encoding: "utf-8", shell: "/bin/bash" }
+    ).trim();
+    if (key) return key;
+  } catch { /* not in keychain */ }
+
+  throw new Error(
+    "ANTHROPIC_API_KEY not set and not found in macOS keychain. " +
+    "Add it to .env.local or run: security add-generic-password -s anthropic -a api-key -w <your-key>"
+  );
+}
+
+/** Determine the base URL to screenshot */
+function getAppUrl(): string {
+  // Prefer explicit env var
+  if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
+
+  // Check if local dev server is running on 3000
+  try {
+    const result = spawnSync("curl", ["-s", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "2", "http://localhost:3000"], {
+      encoding: "utf-8",
+    });
+    if (result.stdout.trim().startsWith("2") || result.stdout.trim().startsWith("3")) {
+      return "http://localhost:3000";
+    }
+  } catch { /* not running */ }
+
+  return "";
+}
+
+interface Screenshot {
+  page: string;
+  path: string;
+  base64: string;
+}
+
+/** Take screenshots of key pages using Playwright */
+async function takeScreenshots(baseUrl: string): Promise<Screenshot[]> {
+  const screenshotDir = join(ROOT, ".ralph", "screenshots");
+  if (!existsSync(screenshotDir)) mkdirSync(screenshotDir, { recursive: true });
+
+  const pages = [
+    { name: "landing", path: "/" },
+    { name: "create", path: "/create" },
+    { name: "features", path: "/features" },
+    { name: "login", path: "/login" },
+  ];
+
+  const screenshots: Screenshot[] = [];
+  const browser = await chromium.launch({ headless: true });
+
+  try {
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 800 },
+    });
+
+    for (const p of pages) {
+      const url = `${baseUrl}${p.path}`;
+      const filePath = join(screenshotDir, `${p.name}.png`);
+
+      try {
+        const browserPage = await context.newPage();
+        await browserPage.goto(url, { waitUntil: "networkidle", timeout: 10000 });
+        await browserPage.screenshot({ path: filePath, fullPage: false });
+        await browserPage.close();
+
+        const { readFileSync } = await import("fs");
+        const base64 = readFileSync(filePath).toString("base64");
+        screenshots.push({ page: p.path, path: filePath, base64 });
+        log(`Screenshot: ${url}`);
+      } catch (err) {
+        log(`Screenshot failed for ${url}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+  } finally {
+    await browser.close();
+  }
+
+  return screenshots;
 }
 
 /** Get all TypeScript/TSX files in src/ with their line counts */
@@ -76,16 +165,22 @@ function getRecentImprovements(): string[] {
   }
 }
 
-/** Ask Claude to identify the best improvement and return a PRD JSON */
-function askClaudeForImprovement(
+/** Ask Claude (via SDK) for the best improvement — with or without screenshots */
+async function askClaudeForImprovement(
   inventory: string,
-  recentImprovements: string[]
-): { title: string; prd: Record<string, unknown> } | null {
+  recentImprovements: string[],
+  screenshots: Screenshot[]
+): Promise<{ title: string; prd: Record<string, unknown> } | null> {
+  const apiKey = getAnthropicApiKey();
+  const client = new Anthropic({ apiKey });
+
   const recentList = recentImprovements.length > 0
     ? recentImprovements.map((t) => `- ${t}`).join("\n")
     : "None yet";
 
-  const prompt = `You are a senior engineer analyzing the Shindig codebase to find the most valuable improvement to make autonomously.
+  const hasScreenshots = screenshots.length > 0;
+
+  const textPrompt = `You are a senior engineer analyzing the Shindig codebase to find the most valuable improvement to make autonomously.
 
 Shindig is an event planning web app built with:
 - Next.js 15 (App Router), React 19, TypeScript (strict mode)
@@ -99,19 +194,27 @@ ${inventory}
 ## Recently completed improvements (do NOT repeat these):
 ${recentList}
 
+${hasScreenshots ? `## Visual context
+I've attached ${screenshots.length} screenshot(s) of the live app (pages: ${screenshots.map(s => s.page).join(", ")}).
+Use these to identify real visual/UX issues you can see directly.
+` : "## Note: No live app screenshots available — base your analysis on code structure only.\n"}
+
 ## Your task:
 Pick ONE specific, actionable improvement from these categories:
 1. **Refactor / modularize** — break up a large file, extract a reusable component or utility
 2. **Test coverage** — add meaningful E2E tests for an area that has poor or no coverage
-3. **UI / UX polish** — small but impactful visual/accessibility/responsiveness improvement
+3. **UI / UX polish** — fix a real visual/layout/accessibility issue you can see in the screenshots (if available)
 4. **TypeScript strictness** — remove 'any' types, add missing return types, improve type safety
 
 Rules:
-- Be SPECIFIC: name the exact file(s), the exact change
+- Be SPECIFIC: name the exact file(s) and the exact change
 - Must be completable in ONE Ralph session (1-3 user stories max)
 - Must NOT duplicate any recently completed improvement above
-- Prefer improvements with the highest impact-to-effort ratio
-- Do NOT suggest adding features — only improvements to existing code
+- If screenshots are provided, prioritize issues you can actually SEE
+- Do NOT suggest adding new features — only improvements to existing code
+
+IMPORTANT: The implementation agent (Ralph) has Playwright MCP available. For UI improvements,
+include an acceptance criterion like: "Visually verify the fix using the Playwright browser tool on localhost:3000"
 
 Return ONLY a valid JSON object (no markdown fences, no explanation) with this structure:
 {
@@ -123,7 +226,12 @@ Return ONLY a valid JSON object (no markdown fences, no explanation) with this s
       "id": "US-001",
       "title": "Story title in imperative form",
       "description": "As a developer, I want [goal] so that [benefit]",
-      "acceptanceCriteria": ["Specific criterion 1", "Specific criterion 2", "TypeScript strict-mode typecheck passes"],
+      "acceptanceCriteria": [
+        "Specific criterion 1",
+        "Specific criterion 2",
+        "TypeScript strict-mode typecheck passes",
+        "Visually verify the change looks correct using the Playwright browser tool on localhost:3000"
+      ],
       "priority": 1,
       "status": "incomplete",
       "phase": 1
@@ -131,29 +239,43 @@ Return ONLY a valid JSON object (no markdown fences, no explanation) with this s
   ]
 }`;
 
-  const promptFile = join(tmpdir(), `shindig-improvement-${Date.now()}.txt`);
-  writeFileSync(promptFile, prompt);
+  // Build message content — text + optional images
+  type ContentBlock =
+    | { type: "text"; text: string }
+    | { type: "image"; source: { type: "base64"; media_type: "image/png"; data: string } };
+
+  const content: ContentBlock[] = [];
+
+  if (hasScreenshots) {
+    for (const s of screenshots) {
+      content.push({
+        type: "image",
+        source: { type: "base64", media_type: "image/png", data: s.base64 },
+      });
+    }
+  }
+
+  content.push({ type: "text", text: textPrompt });
 
   let result: string;
   try {
-    result = execSync(
-      `cat "${promptFile}" | claude --print --dangerously-skip-permissions`,
-      {
-        encoding: "utf-8",
-        maxBuffer: 1024 * 1024,
-        env: cleanEnv,
-        shell: "/bin/bash",
-      }
-    ).trim();
+    const message = await client.messages.create({
+      model: "claude-opus-4-5-20251101",
+      max_tokens: 2048,
+      messages: [{ role: "user", content }],
+    });
+
+    result = message.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("");
   } catch (err) {
-    log(`Claude CLI failed: ${err instanceof Error ? err.message : String(err)}`);
+    log(`Anthropic API call failed: ${err instanceof Error ? err.message : String(err)}`);
     return null;
-  } finally {
-    try { unlinkSync(promptFile); } catch { /* ignore */ }
   }
 
   // Strip markdown fences if present
-  let cleaned = result;
+  let cleaned = result.trim();
   if (cleaned.startsWith("```")) {
     cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
   }
@@ -168,22 +290,21 @@ Return ONLY a valid JSON object (no markdown fences, no explanation) with this s
   }
 
   const title = (prd.title as string) || "Codebase improvement";
-  delete prd.title; // title goes to the issue, not the PRD
+  delete prd.title; // title goes on the GitHub issue, not in the PRD body
 
   return { title, prd };
 }
 
-/** Create a GitHub Issue for the improvement and return it */
+/** Create a GitHub Issue and return it */
 function createImprovementIssue(
   title: string,
-  prd: Record<string, unknown>
+  prd: Record<string, unknown>,
+  hasScreenshots: boolean
 ): GitHubIssue | null {
   const body = `## Autonomous Improvement
 
 This task was generated by the Shindig idle improvement pipeline.
-
-**Category:** ${detectCategory(prd)}
-
+${hasScreenshots ? "\n> Visual analysis performed using live app screenshots.\n" : ""}
 ${prd.description || ""}
 
 ## PRD
@@ -232,15 +353,7 @@ ${JSON.stringify(prd, null, 2)}
   }
 }
 
-function detectCategory(prd: Record<string, unknown>): string {
-  const desc = String(prd.description || "").toLowerCase();
-  if (desc.includes("refactor") || desc.includes("extract") || desc.includes("modular")) return "Refactor / modularize";
-  if (desc.includes("test") || desc.includes("coverage") || desc.includes("spec")) return "Test coverage";
-  if (desc.includes("type") || desc.includes("any") || desc.includes("strict")) return "TypeScript strictness";
-  return "UI / UX polish";
-}
-
-/** Main export: find an improvement and create a GitHub Issue for it */
+/** Main export: find an improvement, optionally with visual analysis */
 export async function findImprovement(): Promise<ImprovementResult | null> {
   log("Scanning codebase for improvement opportunities...");
   const inventory = getCodebaseInventory();
@@ -248,14 +361,30 @@ export async function findImprovement(): Promise<ImprovementResult | null> {
   log("Checking recently completed improvements...");
   const recentImprovements = getRecentImprovements();
   if (recentImprovements.length > 0) {
-    log(`Found ${recentImprovements.length} recently completed improvements to avoid repeating`);
+    log(`${recentImprovements.length} recent improvements found — will avoid repeating`);
+  }
+
+  // Try to take screenshots of the live app
+  let screenshots: Screenshot[] = [];
+  const appUrl = getAppUrl();
+
+  if (appUrl) {
+    log(`Taking screenshots of ${appUrl}...`);
+    try {
+      screenshots = await takeScreenshots(appUrl);
+      log(`Captured ${screenshots.length} screenshot(s)`);
+    } catch (err) {
+      log(`Screenshot step failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  } else {
+    log("No live app URL found (set APP_URL in .env.local, or start dev server on :3000) — using code analysis only");
   }
 
   log("Asking Claude to identify best improvement...");
-  const result = askClaudeForImprovement(inventory, recentImprovements);
+  const result = await askClaudeForImprovement(inventory, recentImprovements, screenshots);
   if (!result) return null;
 
-  const issue = createImprovementIssue(result.title, result.prd);
+  const issue = createImprovementIssue(result.title, result.prd, screenshots.length > 0);
   if (!issue) return null;
 
   return { issue, prd: result.prd };
@@ -270,5 +399,8 @@ if (require.main === module) {
       console.log("Could not identify an improvement task");
       process.exit(1);
     }
+  }).catch((err) => {
+    console.error(err);
+    process.exit(1);
   });
 }
