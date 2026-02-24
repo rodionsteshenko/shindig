@@ -95,6 +95,7 @@ export async function POST(request: Request) {
         slug,
         is_public: body.is_public,
         allow_plus_ones: body.allow_plus_ones,
+        allow_open_rsvp: body.allow_open_rsvp ?? false,
         gift_registry_url: body.gift_registry_url,
         gift_message: body.gift_message,
       })

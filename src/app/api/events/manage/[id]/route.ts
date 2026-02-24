@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { validateEventInput, validateCustomFields } from "@/lib/validation";
+import { validateEventInput, validateCustomFields, validateSlug } from "@/lib/validation";
 import { sanitizeError } from "@/lib/apiResponse";
 import { sanitizeHtml } from "@/lib/sanitize";
 import type { CustomFieldConfig } from "@/lib/types";
@@ -79,27 +79,60 @@ export async function PUT(
     }
   }
 
+  // Validate slug if provided
+  let newSlug: string | undefined;
+  if (body.slug && typeof body.slug === "string" && body.slug.trim()) {
+    const slugValue = body.slug.trim();
+    const slugValidation = validateSlug(slugValue);
+    if (!slugValidation.valid) {
+      return NextResponse.json(
+        { error: "Validation failed", errors: slugValidation.errors },
+        { status: 400 }
+      );
+    }
+    // Check uniqueness (excluding this event)
+    const { data: conflicting } = await supabase
+      .from("events")
+      .select("id")
+      .eq("slug", slugValue)
+      .neq("id", id)
+      .maybeSingle();
+    if (conflicting) {
+      return NextResponse.json(
+        { error: "Validation failed", errors: { slug: "This URL is already taken" } },
+        { status: 400 }
+      );
+    }
+    newSlug = slugValue;
+  }
+
   // Sanitize HTML description to prevent XSS
   const sanitizedDescription = sanitizeHtml(body.description);
 
   try {
+    const updatePayload: Record<string, unknown> = {
+      title: body.title,
+      description: sanitizedDescription,
+      location: body.location,
+      maps_url: body.maps_url,
+      cover_image_url: body.cover_image_url,
+      start_time: body.start_time,
+      end_time: body.end_time,
+      timezone: body.timezone,
+      is_public: body.is_public,
+      allow_plus_ones: body.allow_plus_ones,
+      allow_open_rsvp: body.allow_open_rsvp ?? false,
+      gift_registry_url: body.gift_registry_url,
+      gift_message: body.gift_message,
+      updated_at: new Date().toISOString(),
+    };
+    if (newSlug) {
+      updatePayload.slug = newSlug;
+    }
+
     const { data, error } = await supabase
       .from("events")
-      .update({
-        title: body.title,
-        description: sanitizedDescription,
-        location: body.location,
-        maps_url: body.maps_url,
-        cover_image_url: body.cover_image_url,
-        start_time: body.start_time,
-        end_time: body.end_time,
-        timezone: body.timezone,
-        is_public: body.is_public,
-        allow_plus_ones: body.allow_plus_ones,
-        gift_registry_url: body.gift_registry_url,
-        gift_message: body.gift_message,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq("id", id)
       .eq("host_id", user.id)
       .select()

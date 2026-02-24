@@ -69,12 +69,18 @@ export default function EventForm({ event, initialCustomFields }: EventFormProps
   );
   const [isPublic, setIsPublic] = useState(event?.is_public ?? true);
   const [allowPlusOnes, setAllowPlusOnes] = useState(event?.allow_plus_ones ?? true);
+  const [allowOpenRsvp, setAllowOpenRsvp] = useState(event?.allow_open_rsvp ?? false);
   const [giftRegistryUrl, setGiftRegistryUrl] = useState(event?.gift_registry_url ?? "");
   const [giftMessage, setGiftMessage] = useState(event?.gift_message ?? "");
   const [mapsUrlError, setMapsUrlError] = useState<string | null>(null);
 
-  // Custom slug state
-  const [customSlug, setCustomSlug] = useState("");
+  // Cover image upload state
+  const [uploading, setUploading] = useState(false);
+  const [uploadDragging, setUploadDragging] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Custom slug state — pre-fill with current slug when editing
+  const [customSlug, setCustomSlug] = useState(event?.slug ?? "");
   const [slugError, setSlugError] = useState<string | null>(null);
   const [slugChecking, setSlugChecking] = useState(false);
   const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
@@ -125,7 +131,8 @@ export default function EventForm({ event, initialCustomFields }: EventFormProps
     setSlugError(null);
 
     try {
-      const res = await fetch(`/api/events/check-slug?slug=${encodeURIComponent(slug)}`);
+      const excludeParam = event ? `&exclude=${event.id}` : "";
+      const res = await fetch(`/api/events/check-slug?slug=${encodeURIComponent(slug)}${excludeParam}`);
       const data = await res.json();
 
       if (data.error) {
@@ -182,6 +189,60 @@ export default function EventForm({ event, initialCustomFields }: EventFormProps
     };
   }, []);
 
+  async function uploadCoverImage(file: File) {
+    if (!event) {
+      // For new events, we can't upload yet since there's no event ID.
+      // Fall back to showing a local preview and uploading after creation.
+      setUploadError("Save the event first, then upload a cover image on the edit page.");
+      return;
+    }
+
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      setUploadError("File too large. Maximum size is 10MB.");
+      return;
+    }
+
+    const allowed = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+    if (!allowed.includes(file.type)) {
+      setUploadError("Invalid file type. Allowed: PNG, JPEG, WebP, GIF.");
+      return;
+    }
+
+    setUploading(true);
+    setUploadError(null);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(`/api/events/manage/${event.id}/cover`, {
+      method: "POST",
+      body: formData,
+    });
+
+    const data = await res.json();
+    setUploading(false);
+
+    if (!res.ok) {
+      setUploadError(data.error ?? "Upload failed");
+      return;
+    }
+
+    setCoverImageUrl(data.cover_image_url);
+  }
+
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) uploadCoverImage(file);
+  }
+
+  function handleFileDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setUploadDragging(false);
+    const file = e.dataTransfer.files[0];
+    if (file) uploadCoverImage(file);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
@@ -223,6 +284,7 @@ export default function EventForm({ event, initialCustomFields }: EventFormProps
       timezone,
       is_public: isPublic,
       allow_plus_ones: allowPlusOnes,
+      allow_open_rsvp: allowOpenRsvp,
       gift_registry_url: giftRegistryUrl || null,
       gift_message: giftMessage || null,
       slug: customSlug.trim() || null,
@@ -282,39 +344,39 @@ export default function EventForm({ event, initialCustomFields }: EventFormProps
         )}
       </div>
 
-      {/* Custom URL (only for new events) */}
-      {!event && (
-        <div>
-          <label htmlFor="custom_slug" className="block text-sm font-medium text-gray-700 mb-1">
-            Custom URL
-          </label>
-          <div className="flex items-center">
-            <span className="text-gray-500 text-sm mr-1">shindig.app/e/</span>
-            <input
-              id="custom_slug"
-              type="text"
-              value={customSlug}
-              onChange={(e) => handleSlugChange(e.target.value)}
-              placeholder="my-awesome-party"
-              className={`flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-shindig-500 focus:border-transparent outline-none ${
-                slugError ? "border-red-500" : slugAvailable === true ? "border-green-500" : "border-gray-300"
-              }`}
-            />
-            {slugChecking && (
-              <span className="ml-2 text-gray-500 text-sm">Checking...</span>
-            )}
-            {!slugChecking && slugAvailable === true && (
-              <span className="ml-2 text-green-600 text-sm">Available</span>
-            )}
-          </div>
-          {slugError && (
-            <p className="text-red-600 text-sm mt-1">{slugError}</p>
+      {/* Custom URL */}
+      <div>
+        <label htmlFor="custom_slug" className="block text-sm font-medium text-gray-700 mb-1">
+          Custom URL
+        </label>
+        <div className="flex items-center">
+          <span className="text-gray-500 text-sm mr-1">shindig.app/e/</span>
+          <input
+            id="custom_slug"
+            type="text"
+            value={customSlug}
+            onChange={(e) => handleSlugChange(e.target.value)}
+            placeholder="my-awesome-party"
+            className={`flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-shindig-500 focus:border-transparent outline-none ${
+              slugError ? "border-red-500" : slugAvailable === true ? "border-green-500" : "border-gray-300"
+            }`}
+          />
+          {slugChecking && (
+            <span className="ml-2 text-gray-500 text-sm">Checking...</span>
           )}
-          <p className="text-gray-500 text-xs mt-1">
-            Optional. Use lowercase letters, numbers, and hyphens. Leave blank for an auto-generated URL.
-          </p>
+          {!slugChecking && slugAvailable === true && (
+            <span className="ml-2 text-green-600 text-sm">Available</span>
+          )}
         </div>
-      )}
+        {slugError && (
+          <p className="text-red-600 text-sm mt-1">{slugError}</p>
+        )}
+        <p className="text-gray-500 text-xs mt-1">
+          {event
+            ? "Change your event's public URL. Use lowercase letters, numbers, and hyphens."
+            : "Optional. Use lowercase letters, numbers, and hyphens. Leave blank for an auto-generated URL."}
+        </p>
+      </div>
 
       {/* Description */}
       <div>
@@ -426,6 +488,65 @@ export default function EventForm({ event, initialCustomFields }: EventFormProps
         <label className="block text-sm font-medium text-gray-700 mb-2">
           Cover Image
         </label>
+
+        {/* Current cover preview */}
+        {coverImageUrl && (
+          <div className="relative rounded-xl overflow-hidden mb-3 aspect-video max-w-md">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={coverImageUrl}
+              alt="Cover preview"
+              className="w-full h-full object-cover"
+            />
+            <button
+              type="button"
+              onClick={() => setCoverImageUrl("")}
+              className="absolute top-2 right-2 bg-black/60 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm hover:bg-black/80"
+              aria-label="Remove cover image"
+            >
+              &times;
+            </button>
+          </div>
+        )}
+
+        {/* File upload drop zone */}
+        <div
+          className={`border-2 border-dashed rounded-xl p-6 text-center mb-3 transition-colors ${
+            uploadDragging
+              ? "border-shindig-500 bg-shindig-50"
+              : "border-gray-300 hover:border-gray-400"
+          }`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setUploadDragging(true);
+          }}
+          onDragLeave={() => setUploadDragging(false)}
+          onDrop={handleFileDrop}
+        >
+          {uploading ? (
+            <p className="text-gray-500 text-sm">Uploading...</p>
+          ) : (
+            <>
+              <p className="text-gray-500 text-sm mb-2">
+                Drag & drop an image here, or
+              </p>
+              <label className="inline-block bg-shindig-600 text-white px-4 py-1.5 rounded-lg text-sm font-semibold cursor-pointer hover:bg-shindig-700 transition-colors">
+                Choose File
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+              </label>
+              {uploadError && (
+                <p className="text-red-600 text-sm mt-2">{uploadError}</p>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Preset covers */}
         <div className="grid grid-cols-4 gap-2 mb-3">
           {coverPresets.map((preset) => (
             <button
@@ -478,6 +599,15 @@ export default function EventForm({ event, initialCustomFields }: EventFormProps
             className="rounded border-gray-300 text-shindig-600 focus:ring-shindig-500"
           />
           <span className="text-sm text-gray-700">Allow plus-ones</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={allowOpenRsvp}
+            onChange={(e) => setAllowOpenRsvp(e.target.checked)}
+            className="rounded border-gray-300 text-shindig-600 focus:ring-shindig-500"
+          />
+          <span className="text-sm text-gray-700">Open registration (anyone with link can join)</span>
         </label>
       </div>
 

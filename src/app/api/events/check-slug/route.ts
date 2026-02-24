@@ -18,12 +18,16 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
 
+  // Optional: exclude a specific event ID (for edit mode — the event's own slug is allowed)
+  const exclude = searchParams.get("exclude");
+
   // Check if slug is already taken
-  const { data, error } = await supabase
-    .from("events")
-    .select("id")
-    .eq("slug", slug)
-    .maybeSingle();
+  let query = supabase.from("events").select("id").eq("slug", slug);
+  if (exclude) {
+    query = query.neq("id", exclude);
+  }
+
+  const { data, error } = await query.maybeSingle();
 
   if (error) {
     return NextResponse.json({ error: "Failed to check slug availability" }, { status: 500 });

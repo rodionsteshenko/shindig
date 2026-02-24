@@ -131,6 +131,7 @@ export async function PUT(
         timezone: input.timezone,
         is_public: input.is_public ?? true,
         allow_plus_ones: input.allow_plus_ones ?? true,
+        allow_open_rsvp: input.allow_open_rsvp ?? false,
         gift_registry_url: input.gift_registry_url ?? null,
         gift_message: input.gift_message ?? null,
         updated_at: new Date().toISOString(),

@@ -20,6 +20,7 @@ export interface Event {
   slug: string;
   is_public: boolean;
   allow_plus_ones: boolean;
+  allow_open_rsvp: boolean;
   gift_registry_url: string | null;
   gift_message: string | null;
   created_at: string;

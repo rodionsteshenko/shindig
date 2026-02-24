@@ -5,6 +5,7 @@ import { formatDate, formatTime, isUUID } from "@/lib/utils";
 import EventLocation from "@/components/EventLocation";
 import PublicCustomFields from "@/components/PublicCustomFields";
 import RichTextDisplay from "@/components/RichTextDisplay";
+import OpenRegistrationForm from "@/components/OpenRegistrationForm";
 import type { Event } from "@/lib/types";
 import type { Metadata } from "next";
 
@@ -141,6 +142,14 @@ export default async function EventPage({ params }: Props) {
               View Gift Registry →
             </a>
           )}
+        </div>
+      )}
+
+      {/* Open Registration */}
+      {e.allow_open_rsvp && (
+        <div className="bg-shindig-50 rounded-xl p-6 mb-8">
+          <h3 className="font-semibold text-lg mb-4">Register for this Event</h3>
+          <OpenRegistrationForm eventSlug={e.slug} />
         </div>
       )}
 
