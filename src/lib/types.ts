@@ -39,6 +39,7 @@ export interface Guest {
   rsvp_token: string;
   invited_at: string | null;
   responded_at: string | null;
+  reminded_at: string | null;
   created_at: string;
 }
 

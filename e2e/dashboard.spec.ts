@@ -155,4 +155,46 @@ test.describe("Event Dashboard", () => {
     // Plain text should be rendered (without HTML tags)
     await expect(page.getByText("This is a plain text description")).toBeVisible();
   });
+
+  test("shows reminded indicator for guests with reminded_at set", async ({ page }) => {
+    await cleanupTestData();
+    const userId = await loginAsTestUser(page);
+    const event = await seedEvent(userId);
+
+    // Seed a guest WITH reminded_at set (simulating they were reminded)
+    const remindedAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(); // 2 days ago
+    await seedGuest(event.id, {
+      name: "Reminded Guest",
+      email: "reminded@shindig.test",
+      rsvp_status: "pending",
+      reminded_at: remindedAt,
+    });
+
+    // Seed a guest WITHOUT reminded_at (never reminded)
+    await seedGuest(event.id, {
+      name: "Not Reminded Guest",
+      email: "notreminded@shindig.test",
+      rsvp_status: "pending",
+      reminded_at: null,
+    });
+
+    await page.goto(`/dashboard/${event.id}`);
+
+    // Filter to Pending guests to see the reminded indicator more clearly
+    const pendingButton = page.getByRole("button", { name: /Pending/ });
+    await pendingButton.click();
+
+    // Guest list should show both guests
+    await expect(page.getByText("Reminded Guest")).toBeVisible();
+    await expect(page.getByText("Not Reminded Guest")).toBeVisible();
+
+    // Only the reminded guest should have the reminded indicator
+    const remindedRow = page.locator("tr").filter({ hasText: "Reminded Guest" });
+    await expect(remindedRow.getByTestId("reminded-indicator")).toBeVisible();
+    await expect(remindedRow.getByText(/Reminded \d+d ago/)).toBeVisible();
+
+    // The non-reminded guest should NOT have the indicator
+    const notRemindedRow = page.locator("tr").filter({ hasText: "Not Reminded Guest" });
+    await expect(notRemindedRow.getByTestId("reminded-indicator")).not.toBeVisible();
+  });
 });

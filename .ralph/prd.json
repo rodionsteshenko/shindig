@@ -17,9 +17,11 @@
         "E2E test in e2e/api-invite.spec.ts verifies the remind endpoint still returns 401 without auth"
       ],
       "priority": 1,
-      "status": "in_progress",
+      "status": "complete",
       "phase": 1,
-      "startedAt": "2026-02-23T20:14:50.419753"
+      "startedAt": "2026-02-23T20:14:50.419753",
+      "actualDuration": 1357.1446940898895,
+      "iterationNumber": 1
     },
     {
       "id": "US-002",
@@ -35,8 +37,9 @@
         "E2E test verifies that after seeding a guest with reminded_at set, the dashboard guest list displays the reminded indicator"
       ],
       "priority": 2,
-      "status": "incomplete",
-      "phase": 2
+      "status": "in_progress",
+      "phase": 2,
+      "startedAt": "2026-02-23T20:37:46.482024"
     },
     {
       "id": "US-003",
@@ -65,9 +68,9 @@
   },
   "metadata": {
     "createdAt": "2026-02-19T00:36:43.511Z",
-    "lastUpdatedAt": "2026-02-23T20:14:50.419786",
+    "lastUpdatedAt": "2026-02-23T20:37:46.482037",
     "totalStories": 3,
-    "completedStories": 0,
+    "completedStories": 1,
     "currentIteration": 1
   }
 }

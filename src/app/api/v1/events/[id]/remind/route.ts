@@ -107,6 +107,11 @@ export async function POST(
         subject: email.subject,
         html: email.html,
       });
+      // Update reminded_at timestamp on successful send
+      await adminClient
+        .from("guests")
+        .update({ reminded_at: new Date().toISOString() })
+        .eq("id", guest.id);
       sent++;
     } catch (err) {
       console.error(`Failed to send reminder:`, sanitizeError(err));

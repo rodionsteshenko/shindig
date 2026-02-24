@@ -15,6 +15,24 @@ const statusBadge: Record<string, { label: string; className: string }> = {
   pending: { label: "Pending", className: "bg-gray-100 text-gray-600" },
 };
 
+/**
+ * Format a timestamp as a relative time (e.g., "2d ago", "3h ago")
+ */
+function formatRelativeTime(timestamp: string): string {
+  const now = Date.now();
+  const then = new Date(timestamp).getTime();
+  const diffMs = now - then;
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHour = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHour / 24);
+
+  if (diffDay > 0) return `${diffDay}d ago`;
+  if (diffHour > 0) return `${diffHour}h ago`;
+  if (diffMin > 0) return `${diffMin}m ago`;
+  return "just now";
+}
+
 type SortKey = "name" | "rsvp_status" | "created_at";
 
 export default function GuestList({ guests, eventId }: GuestListProps) {
@@ -99,6 +117,16 @@ export default function GuestList({ guests, eventId }: GuestListProps) {
                     <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${badge.className}`}>
                       {badge.label}
                     </span>
+                    {guest.reminded_at && (
+                      <span
+                        className="ml-2 inline-flex items-center text-xs text-shindig-600"
+                        title={`Reminded ${new Date(guest.reminded_at).toLocaleString()}`}
+                        data-testid="reminded-indicator"
+                      >
+                        <span className="w-1.5 h-1.5 bg-shindig-500 rounded-full mr-1" />
+                        Reminded {formatRelativeTime(guest.reminded_at)}
+                      </span>
+                    )}
                   </td>
                   <td className="py-2.5 pr-4 text-gray-600">
                     {guest.plus_one_count > 0 ? `+${guest.plus_one_count}` : "—"}

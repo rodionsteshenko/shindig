@@ -95,6 +95,11 @@ export async function POST(
         html: email.html,
         text: email.text,
       });
+      // Update reminded_at timestamp on successful send
+      await supabase
+        .from("guests")
+        .update({ reminded_at: new Date().toISOString() })
+        .eq("id", guest.id);
       sent++;
     } catch (err) {
       console.error(`Failed to send reminder:`, sanitizeError(err));
