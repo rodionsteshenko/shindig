@@ -1,4 +1,4 @@
-import DOMPurify from "isomorphic-dompurify";
+import sanitize from "sanitize-html";
 
 /**
  * Sanitizes HTML content to prevent XSS attacks.
@@ -14,17 +14,8 @@ export function sanitizeHtml(html: string | null | undefined): string | null {
     return null;
   }
 
-  // Configure DOMPurify to add hook for links
-  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
-    // Force all links to open in new tab with noopener noreferrer
-    if (node.tagName === "A" && node.hasAttribute("href")) {
-      node.setAttribute("target", "_blank");
-      node.setAttribute("rel", "noopener noreferrer");
-    }
-  });
-
-  const sanitized = DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
+  const sanitized = sanitize(html, {
+    allowedTags: [
       "p",
       "br",
       "strong",
@@ -39,11 +30,20 @@ export function sanitizeHtml(html: string | null | undefined): string | null {
       "li",
       "a",
     ],
-    ALLOWED_ATTR: ["href", "target", "rel", "class"],
+    allowedAttributes: {
+      a: ["href", "target", "rel", "class"],
+    },
+    transformTags: {
+      a: (tagName, attribs) => ({
+        tagName,
+        attribs: {
+          ...attribs,
+          target: "_blank",
+          rel: "noopener noreferrer",
+        },
+      }),
+    },
   });
-
-  // Remove the hook to prevent memory leaks and side effects
-  DOMPurify.removeHook("afterSanitizeAttributes");
 
   // Return null if sanitization resulted in empty string
   if (sanitized.trim() === "" || sanitized === "<p></p>") {
