@@ -62,19 +62,21 @@ function escapeICS(text: string): string {
   return text.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
 }
 
-export function formatDate(iso: string): string {
+export function formatDate(iso: string, timeZone?: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
+    ...(timeZone && { timeZone }),
   });
 }
 
-export function formatTime(iso: string): string {
+export function formatTime(iso: string, timeZone?: string): string {
   return new Date(iso).toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
+    ...(timeZone && { timeZone }),
   });
 }
 

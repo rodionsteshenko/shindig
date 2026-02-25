@@ -112,8 +112,8 @@ export default async function EventPage({ params }: Props) {
         <div className="flex items-center gap-2 text-gray-700">
           <span className="text-lg">📅</span>
           <span>
-            {formatDate(e.start_time)} at {formatTime(e.start_time)}
-            {e.end_time && ` — ${formatTime(e.end_time)}`}
+            {formatDate(e.start_time, e.timezone)} at {formatTime(e.start_time, e.timezone)}
+            {e.end_time && ` — ${formatTime(e.end_time, e.timezone)}`}
           </span>
         </div>
 

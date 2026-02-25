@@ -95,8 +95,8 @@ export async function POST(
     const email = reminderEmail({
       guestName: guest.name,
       eventTitle: event.title,
-      eventDate: formatDate(event.start_time),
-      eventTime: formatTime(event.start_time),
+      eventDate: formatDate(event.start_time, event.timezone),
+      eventTime: formatTime(event.start_time, event.timezone),
       rsvpUrl: `${origin}/rsvp/${guest.rsvp_token}`,
     });
 

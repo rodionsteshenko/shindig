@@ -36,7 +36,7 @@ export default function EventCard({ event, guestCount = 0, goingCount = 0 }: Eve
           )}
         </div>
         <p className="text-sm text-gray-600 mb-3">
-          {formatDate(event.start_time)} at {formatTime(event.start_time)}
+          {formatDate(event.start_time, event.timezone)} at {formatTime(event.start_time, event.timezone)}
         </p>
         <div className="flex gap-4 text-sm text-gray-500">
           <span>{guestCount} guests</span>

@@ -90,8 +90,8 @@ export default async function RSVPPage({ params }: Props) {
         <div className="flex items-center gap-2 text-gray-700">
           <span className="text-lg">📅</span>
           <span>
-            {formatDate(event.start_time)} at {formatTime(event.start_time)}
-            {event.end_time && ` — ${formatTime(event.end_time)}`}
+            {formatDate(event.start_time, event.timezone)} at {formatTime(event.start_time, event.timezone)}
+            {event.end_time && ` — ${formatTime(event.end_time, event.timezone)}`}
           </span>
         </div>
 

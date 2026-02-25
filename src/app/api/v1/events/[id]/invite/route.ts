@@ -135,8 +135,8 @@ export async function POST(
     const email = invitationEmail({
       guestName: guest.name,
       eventTitle: event.title,
-      eventDate: formatDate(event.start_time),
-      eventTime: formatTime(event.start_time),
+      eventDate: formatDate(event.start_time, event.timezone),
+      eventTime: formatTime(event.start_time, event.timezone),
       eventLocation: event.location,
       eventDescription: event.description ? stripHtml(event.description) : null,
       coverImageUrl: event.cover_image_url,

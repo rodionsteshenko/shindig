@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getResendClient } from "@/lib/resend";
+import { sendSms } from "@/lib/twilio";
 import { reminderEmail } from "@/lib/emailTemplates";
 import { formatDate, formatTime } from "@/lib/utils";
 import { emailSendLimiter } from "@/lib/rateLimit";
@@ -79,8 +80,8 @@ export async function POST(
     const email = reminderEmail({
       guestName: guest.name,
       eventTitle: e.title,
-      eventDate: formatDate(e.start_time),
-      eventTime: formatTime(e.start_time),
+      eventDate: formatDate(e.start_time, e.timezone),
+      eventTime: formatTime(e.start_time, e.timezone),
       eventLocation: e.location,
       coverImageUrl: e.cover_image_url,
       hostName,

@@ -49,8 +49,8 @@ export async function GET(
   const email = invitationEmail({
     guestName: "Guest Name",
     eventTitle: e.title,
-    eventDate: formatDate(e.start_time),
-    eventTime: formatTime(e.start_time),
+    eventDate: formatDate(e.start_time, e.timezone),
+    eventTime: formatTime(e.start_time, e.timezone),
     eventLocation: e.location,
     eventDescription: e.description ? stripHtml(e.description) : null,
     coverImageUrl: e.cover_image_url,
@@ -119,8 +119,8 @@ export async function POST(
   const email = invitationEmail({
     guestName: user.email.split("@")[0],
     eventTitle: e.title,
-    eventDate: formatDate(e.start_time),
-    eventTime: formatTime(e.start_time),
+    eventDate: formatDate(e.start_time, e.timezone),
+    eventTime: formatTime(e.start_time, e.timezone),
     eventLocation: e.location,
     eventDescription: e.description ? stripHtml(e.description) : null,
     coverImageUrl: e.cover_image_url,
