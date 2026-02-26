@@ -12,10 +12,14 @@ export function generateSlug(title: string): string {
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
+    .replace(/^-+/, "")
     .slice(0, 40)
     .replace(/-$/, "");
 
   const suffix = Math.random().toString(36).slice(2, 6);
+  if (!base) {
+    return `event-${suffix}`;
+  }
   return `${base}-${suffix}`;
 }
 
