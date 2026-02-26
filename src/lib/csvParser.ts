@@ -1,5 +1,45 @@
 import { normalizePhone, type CountryCode, DEFAULT_COUNTRY } from "./phone";
 
+/**
+ * Splits a CSV line respecting quoted fields (handles commas inside quotes).
+ * Supports both double-quoted and single-quoted fields.
+ */
+function splitCSVLine(line: string): string[] {
+  const parts: string[] = [];
+  let current = "";
+  let inQuotes = false;
+  let quoteChar = "";
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+
+    if (inQuotes) {
+      if (ch === quoteChar) {
+        // Check for escaped quote (doubled quote char)
+        if (i + 1 < line.length && line[i + 1] === quoteChar) {
+          current += ch;
+          i++; // skip next quote
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += ch;
+      }
+    } else if (ch === '"' || ch === "'") {
+      inQuotes = true;
+      quoteChar = ch;
+    } else if (ch === ",") {
+      parts.push(current);
+      current = "";
+    } else {
+      current += ch;
+    }
+  }
+
+  parts.push(current);
+  return parts;
+}
+
 export interface CSVGuest {
   name: string;
   email: string;
@@ -50,7 +90,7 @@ export function parseGuestCSV(
     // Skip empty lines
     if (!line.trim()) continue;
 
-    const parts = line.split(",").map((s) => s.trim().replace(/^["']|["']$/g, ""));
+    const parts = splitCSVLine(line).map((s) => s.trim());
 
     // Require at least name (email can be empty for phone-only guests)
     if (parts.length < 1 || parts[0].length === 0) {
